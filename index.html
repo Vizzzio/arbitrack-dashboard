@@ -4,6 +4,75 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Sourcing Dashboard — Google Maps</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://dqocqznuuamikxfczntw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxb2Nxem51dWFtaWt4ZmN6bnR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjY0NDUsImV4cCI6MjA5NDkwMjQ0NX0.mlBqiwf3lZo5czhEgYJVXYBFyWGuGWCfioSH_COrfkA';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function sbLoadStores() {
+  try {
+    const { data, error } = await _sb.from('sourcing_stores').select('*').order('chain').order('addr');
+    if (error) throw error;
+    if (data && data.length) {
+      return data.map(r => ({ id: r.id, chain: r.chain, addr: r.addr, lat: r.lat, lng: r.lng, notes: r.notes || '', visits: r.visits || [] }));
+    }
+  } catch(e) { console.warn('Supabase load failed, using local:', e.message); }
+  return null;
+}
+
+async function sbSaveAllStores(storeArr) {
+  try {
+    const rows = storeArr.map(s => ({ id: s.id, chain: s.chain, addr: s.addr, lat: s.lat, lng: s.lng, notes: s.notes || '', visits: s.visits || [], updated_at: new Date().toISOString() }));
+    for (let i = 0; i < rows.length; i += 100) {
+      await _sb.from('sourcing_stores').upsert(rows.slice(i, i+100), { onConflict: 'id' });
+    }
+  } catch(e) { console.warn('Supabase save failed:', e.message); }
+}
+
+async function sbSaveStore(s) {
+  try {
+    await _sb.from('sourcing_stores').upsert({ id: s.id, chain: s.chain, addr: s.addr, lat: s.lat, lng: s.lng, notes: s.notes || '', visits: s.visits || [], updated_at: new Date().toISOString() }, { onConflict: 'id' });
+  } catch(e) { console.warn('Supabase save store failed:', e.message); }
+}
+
+async function sbDeleteStore(id) {
+  try { await _sb.from('sourcing_stores').delete().eq('id', id); }
+  catch(e) { console.warn('Supabase delete failed:', e.message); }
+}
+
+async function sbSaveRoute(route) {
+  try {
+    if (route) {
+      await _sb.from('sourcing_routes').upsert({ id: 'active', data: route, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    } else {
+      await _sb.from('sourcing_routes').delete().eq('id', 'active');
+    }
+  } catch(e) { console.warn('Supabase route save failed:', e.message); }
+}
+
+async function sbLoadRoute() {
+  try {
+    const { data } = await _sb.from('sourcing_routes').select('data').eq('id', 'active').single();
+    return data ? data.data : null;
+  } catch(e) { return null; }
+}
+
+async function sbMigrateSeedIfNeeded() {
+  try {
+    const { count } = await _sb.from('sourcing_stores').select('id', { count: 'exact', head: true });
+    if (count === 0) {
+      console.log('First run — migrating seed stores to Supabase...');
+      const seedRows = SEED_STORES.map(s => ({ id: s.id, chain: s.chain, addr: s.addr, lat: s.lat, lng: s.lng, notes: s.notes || '', visits: s.visits || [], updated_at: new Date().toISOString() }));
+      for (let i = 0; i < seedRows.length; i += 100) {
+        await _sb.from('sourcing_stores').upsert(seedRows.slice(i, i+100), { onConflict: 'id' });
+      }
+      console.log('Migration complete: ' + seedRows.length + ' stores.');
+    }
+  } catch(e) { console.warn('Migration failed:', e.message); }
+}
+</script>
 <style>
 :root { color-scheme:light; --bg:#f7f8fa; --panel:#fff; --ink:#111827; --ink-2:#4b5563; --ink-3:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --accent:#2563eb; --accent-2:#1d4ed8; --green:#16a34a; --green-bg:#dcfce7; --yellow:#ca8a04; --yellow-bg:#fef9c3; --red:#dc2626; --red-bg:#fee2e2; --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04); }
 * { box-sizing:border-box; }
@@ -310,11 +379,17 @@ function loadStores(){
   localStorage.setItem(VERSION_KEY, SEED_VERSION);
   return migrateStores(JSON.parse(JSON.stringify(SEED_STORES)));
 }
-function saveStores(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(stores)); }catch(e){} }
+function saveStores(){
+  try{ localStorage.setItem(STORE_KEY,JSON.stringify(stores)); }catch(e){}
+  sbSaveAllStores(stores); // sync to Supabase
+}
 function loadLogos(){ try{ return JSON.parse(localStorage.getItem(LOGO_KEY))||{}; }catch(e){ return {}; } }
 function saveLogos(){ try{ localStorage.setItem(LOGO_KEY,JSON.stringify(logos)); }catch(e){} }
 function loadActiveRoute(){ try{ return JSON.parse(localStorage.getItem(ROUTE_KEY))||null; }catch(e){ return null; } }
-function saveActiveRoute(){ try{ activeRoute ? localStorage.setItem(ROUTE_KEY,JSON.stringify(activeRoute)) : localStorage.removeItem(ROUTE_KEY); }catch(e){} }
+function saveActiveRoute(){
+  try{ activeRoute ? localStorage.setItem(ROUTE_KEY,JSON.stringify(activeRoute)) : localStorage.removeItem(ROUTE_KEY); }catch(e){}
+  sbSaveRoute(activeRoute); // sync to Supabase
+}
 function loadRouteHistory(){ try{ return JSON.parse(localStorage.getItem(HISTORY_KEY))||[]; }catch(e){ return []; } }
 function saveRouteHistory(){ try{ localStorage.setItem(HISTORY_KEY,JSON.stringify(routeHistory)); }catch(e){} }
 
@@ -382,9 +457,22 @@ function loadGoogleMaps(key){
   document.head.appendChild(s);
 }
 
-function bootApp(){
+async function bootApp(){
   document.getElementById("setup-overlay").style.display = "none";
   document.getElementById("app").style.display = "grid";
+  
+  // Try loading from Supabase first
+  await sbMigrateSeedIfNeeded();
+  const sbStores = await sbLoadStores();
+  if (sbStores && sbStores.length) {
+    stores = sbStores;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(stores)); } catch(e){}
+  }
+  const sbRoute = await sbLoadRoute();
+  if (sbRoute) {
+    activeRoute = sbRoute;
+    try { localStorage.setItem(ROUTE_KEY, JSON.stringify(activeRoute)); } catch(e){}
+  }
   const styles = [{ featureType:"poi", stylers:[{ visibility:"off" }] },{ featureType:"poi.park", stylers:[{ visibility:"simplified" }] },{ featureType:"transit", stylers:[{ visibility:"simplified" }] }];
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 41.85, lng: -87.7 }, zoom: 9,
@@ -606,7 +694,7 @@ function renderDetails(){
     } else { return; }
     saveActiveRoute(); renderAll();
   };
-  document.getElementById("d-delete").onclick = () => { if(confirm("Delete this store?")){ const m=markerMap.get(s.id); if(m){ m.setMap(null); markerMap.delete(s.id); } stores = stores.filter(x => x.id!==s.id); selectedId=null; saveStores(); renderAll(); } };
+  document.getElementById("d-delete").onclick = () => { if(confirm("Delete this store?")){ const m=markerMap.get(s.id); if(m){ m.setMap(null); markerMap.delete(s.id); } sbDeleteStore(s.id); stores = stores.filter(x => x.id!==s.id); selectedId=null; saveStores(); renderAll(); } };
   document.getElementById("d-streetview").onclick = () => { if(!map) return; const sv = map.getStreetView(); sv.setPosition({ lat:s.lat, lng:s.lng }); sv.setVisible(true); };
   for(const b of el.querySelectorAll(".del-visit")){
     b.onclick = e => { removeVisitAt(s, +e.currentTarget.getAttribute("data-i")); saveStores(); renderAll(); };
