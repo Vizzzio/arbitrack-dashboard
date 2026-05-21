@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sourcing Dashboard — Google Maps</title>
+<style>
+:root { color-scheme:light; --bg:#f7f8fa; --panel:#fff; --ink:#111827; --ink-2:#4b5563; --ink-3:#9ca3af; --line:#e5e7eb; --line-2:#d1d5db; --accent:#2563eb; --accent-2:#1d4ed8; --green:#16a34a; --green-bg:#dcfce7; --yellow:#ca8a04; --yellow-bg:#fef9c3; --red:#dc2626; --red-bg:#fee2e2; --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04); }
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--ink); font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+button { font:inherit; color:inherit; cursor:pointer; }
+input,select,textarea { font:inherit; color:inherit; }
+a { color:var(--accent); }
+.app { display:grid; grid-template-columns:320px 1fr 0; grid-template-rows:auto 1fr; height:100vh; min-height:0; }
+.app.has-details { grid-template-columns:320px 1fr 340px; }
+header.top { grid-column:1/-1; display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); z-index:5; }
+header.top h1 { font-size:15px; margin:0; font-weight:600; }
+.stats { display:flex; gap:14px; color:var(--ink-2); font-size:12.5px; flex-wrap:wrap; }
+.stats b { color:var(--ink); font-weight:600; }
+.stat-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; background:#f3f4f6; }
+.stat-pill .dot { width:8px; height:8px; border-radius:50%; }
+.stat-pill.green .dot { background:var(--green); } .stat-pill.yellow .dot { background:var(--yellow); } .stat-pill.red .dot { background:var(--red); }
+.top-actions { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+.btn { border:1px solid var(--line-2); background:white; padding:6px 10px; border-radius:6px; font-size:13px; text-decoration:none; color:var(--ink); display:inline-block; }
+.btn:hover { background:#f3f4f6; }
+.btn.primary { background:var(--accent); color:white; border-color:var(--accent); }
+.btn.primary:hover { background:var(--accent-2); }
+.btn.subtle { border-color:transparent; background:transparent; }
+.btn.subtle:hover { background:#f3f4f6; }
+.btn.small { padding:4px 8px; font-size:12px; }
+aside.side { grid-row:2; grid-column:1; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+.side .controls { padding:12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:10px; }
+.side input[type=search] { width:100%; padding:7px 10px; border:1px solid var(--line-2); border-radius:6px; background:white; }
+.filters-row { display:flex; gap:6px; flex-wrap:wrap; }
+.pill { padding:4px 10px; border-radius:999px; border:1px solid var(--line-2); background:white; font-size:12px; cursor:pointer; user-select:none; }
+.pill.active { background:var(--ink); color:white; border-color:var(--ink); }
+.chains { display:flex; flex-wrap:wrap; gap:5px; }
+.chip { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:999px; background:#f3f4f6; border:1px solid transparent; font-size:11.5px; cursor:pointer; user-select:none; }
+.chip.off { opacity:.4; }
+.chip .dot { width:8px; height:8px; border-radius:50%; }
+.side .list { flex:1; overflow-y:auto; padding:4px 0; }
+.row { display:flex; gap:8px; align-items:flex-start; padding:8px 12px; border-bottom:1px solid #f3f4f6; cursor:pointer; }
+.row:hover { background:#f9fafb; }
+.row.selected { background:#eff6ff; }
+.row .badge { width:8px; height:8px; border-radius:50%; margin-top:6px; flex:0 0 auto; }
+.row .body { min-width:0; flex:1; }
+.row .chain { font-size:11.5px; color:var(--ink-2); }
+.row .addr { font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .meta { font-size:11.5px; color:var(--ink-3); }
+.badge-status { padding:1px 6px; border-radius:4px; font-size:10.5px; font-weight:500; }
+.badge-status.green { background:var(--green-bg); color:#166534; }
+.badge-status.yellow { background:var(--yellow-bg); color:#854d0e; }
+.badge-status.red { background:var(--red-bg); color:#991b1b; }
+section.map-wrap { grid-row:2; grid-column:2; position:relative; background:#eef2f5; overflow:hidden; min-height:0; }
+#map { width:100%; height:100%; }
+#map.placing, #map.tapping { cursor:crosshair !important; }
+.map-legend { position:absolute; bottom:24px; left:12px; background:white; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12px; box-shadow:var(--shadow); z-index:5; }
+.map-legend .lg-row { display:flex; align-items:center; gap:6px; }
+.map-legend .lg-dot { width:10px; height:10px; border-radius:50%; }
+.place-banner, .tap-banner { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:var(--accent); color:white; padding:10px 14px; border-radius:12px; font-size:13px; box-shadow:var(--shadow); z-index:6; max-width:90vw; }
+.place-banner { padding:8px 14px; border-radius:999px; }
+.place-banner .cancel { margin-left:10px; background:rgba(255,255,255,.2); border:0; color:white; padding:2px 8px; border-radius:999px; cursor:pointer; }
+.tap-banner { display:flex; flex-direction:column; gap:8px; min-width:320px; }
+.tap-banner .tap-head { display:flex; align-items:center; gap:8px; }
+.tap-banner .tap-head b { font-size:13.5px; flex:1; }
+.tap-banner .tap-head .btn { padding:5px 10px; font-size:12px; background:white; color:var(--ink); border:0; }
+.tap-banner .tap-head .btn.primary { background:#fff; color:var(--accent); font-weight:600; }
+.tap-banner .tap-head .btn.subtle { background:rgba(255,255,255,.18); color:white; }
+.tap-banner .tap-list { display:flex; flex-wrap:wrap; gap:4px; max-height:80px; overflow-y:auto; }
+.tap-banner .tap-pill { background:rgba(255,255,255,.22); padding:2px 8px; border-radius:999px; font-size:11.5px; }
+.tap-banner .tap-pill b { color:#fff; margin-right:3px; }
+aside.details { grid-row:2; grid-column:3; background:var(--panel); border-left:1px solid var(--line); overflow-y:auto; display:none; }
+.app.has-details aside.details { display:block; }
+.details .head { padding:14px 14px 8px; border-bottom:1px solid var(--line); position:relative; }
+.details .close { position:absolute; top:10px; right:10px; }
+.details h2 { margin:0; font-size:16px; font-weight:600; }
+.details .sub { color:var(--ink-2); font-size:12.5px; margin-top:2px; }
+.details .section { padding:12px 14px; border-bottom:1px solid var(--line); }
+.details .kv { display:grid; grid-template-columns:90px 1fr; gap:6px 10px; font-size:13px; }
+.details .kv dt { color:var(--ink-2); }
+.details .kv dd { margin:0; }
+.details textarea { width:100%; min-height:70px; resize:vertical; border:1px solid var(--line-2); border-radius:6px; padding:7px; }
+.details .btns { display:flex; gap:8px; flex-wrap:wrap; }
+.input-row { display:flex; gap:6px; align-items:center; }
+.input-row input[type=date] { padding:5px 7px; border:1px solid var(--line-2); border-radius:6px; }
+.visit-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px; }
+.visit-list li { display:flex; align-items:center; gap:8px; padding:5px 8px; background:#f9fafb; border-radius:6px; font-size:13px; }
+.visit-list li.vempty { color:var(--ink-3); justify-content:center; padding:10px; }
+.visit-list .vd { font-weight:500; }
+.visit-list .va { color:var(--ink-2); font-size:12px; }
+.visit-list .del-visit { margin-left:auto; padding:0 6px; font-size:16px; color:var(--ink-3); background:transparent; border:0; }
+.modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
+.modal-bg.show { display:flex; }
+.modal { background:white; border-radius:12px; max-width:640px; width:100%; max-height:86vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+.modal .m-head { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; }
+.modal .m-head h3 { margin:0; font-size:15px; }
+.modal .m-head .close { margin-left:auto; }
+.modal .m-body { padding:16px; display:flex; flex-direction:column; gap:12px; }
+.modal label { font-size:12.5px; color:var(--ink-2); display:block; margin-bottom:4px; }
+.modal input[type=text], .modal select, .modal textarea { width:100%; padding:7px; border:1px solid var(--line-2); border-radius:6px; }
+.modal textarea { font-family:ui-monospace,monospace; font-size:12px; min-height:120px; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.route-stop { display:flex; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; align-items:flex-start; }
+.route-stop .num { width:24px; height:24px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-size:12px; flex:0 0 auto; font-weight:600; }
+.route-stop .stop-actions { display:flex; gap:2px; flex:0 0 auto; }
+.route-stop .stop-actions button { width:26px; height:26px; padding:0; line-height:1; }
+.route-mode { display:flex; gap:6px; padding:4px; background:#f3f4f6; border-radius:8px; }
+.route-mode .pill { flex:1; text-align:center; background:transparent; border:0; padding:6px; font-size:12.5px; border-radius:6px; }
+.route-mode .pill.active { background:white; box-shadow:0 1px 2px rgba(0,0,0,.06); font-weight:500; }
+.add-stop-search { position:relative; }
+.add-stop-search input { width:100%; padding:7px 10px; border:1px solid var(--line-2); border-radius:6px; }
+.add-stop-results { position:absolute; left:0; right:0; top:100%; margin-top:2px; background:white; border:1px solid var(--line); border-radius:6px; box-shadow:var(--shadow); max-height:240px; overflow-y:auto; z-index:5; }
+.add-stop-results .opt { padding:7px 10px; cursor:pointer; border-bottom:1px solid #f3f4f6; font-size:13px; display:flex; align-items:center; gap:6px; }
+.add-stop-results .opt:hover { background:#f9fafb; }
+.add-stop-results .opt .dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+.add-stop-results .opt .meta { color:var(--ink-3); font-size:11.5px; margin-left:auto; }
+.trip-panel { background:#fff8e1; border-bottom:1px solid var(--line); padding:12px; }
+.trip-panel.empty { display:none; }
+.trip-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.trip-head .title { font-weight:600; font-size:13px; flex:1; }
+.trip-head .meta { color:var(--ink-2); font-size:11.5px; }
+.trip-stop { display:flex; gap:8px; padding:6px 0; border-top:1px dashed #e4d59a; align-items:center; font-size:12.5px; }
+.trip-stop .tn { width:20px; height:20px; border-radius:50%; background:white; color:var(--ink); display:flex; align-items:center; justify-content:center; font-size:11px; flex:0 0 auto; border:1px solid #e4d59a; font-weight:600; }
+.trip-stop .tn.visited { background:var(--green); color:white; border-color:var(--green); }
+.trip-stop .tn.skipped { background:var(--ink-3); color:white; border-color:var(--ink-3); }
+.trip-stop .tb { flex:1; min-width:0; cursor:pointer; }
+.trip-stop .tb .tc { font-size:11px; color:var(--ink-2); }
+.trip-stop .tb .ta { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.trip-stop.visited .tb { opacity:0.7; text-decoration:line-through; }
+.trip-stop.skipped .tb { opacity:0.5; }
+.trip-stop .ts-btns { display:flex; gap:3px; flex:0 0 auto; }
+.trip-stop .ts-btns button { padding:2px 6px; font-size:11px; border:1px solid var(--line-2); background:white; border-radius:4px; line-height:1.3; }
+.trip-stop .ts-btns button.on-visit { background:var(--green); color:white; border-color:var(--green); }
+.trip-stop .ts-btns button.on-skip { background:var(--ink-3); color:white; border-color:var(--ink-3); }
+.trip-foot { display:flex; gap:6px; margin-top:10px; }
+.trip-foot .btn { flex:1; padding:6px 8px; font-size:12px; }
+.setup-bg { position:fixed; inset:0; background:linear-gradient(135deg,#f3f6fb,#e6edf6); display:flex; align-items:center; justify-content:center; padding:24px; z-index:100; overflow:auto; }
+.setup-card { background:white; max-width:680px; width:100%; padding:28px 32px; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.12); }
+.setup-card h1 { font-size:22px; margin:0 0 6px; }
+.setup-card .lede { color:var(--ink-2); font-size:13.5px; }
+.setup-card h3 { font-size:14px; margin:18px 0 6px; }
+.setup-card ol { padding-left:20px; margin:6px 0; font-size:13.5px; }
+.setup-card .key-row { display:flex; gap:8px; margin-top:6px; }
+.setup-card input[type=text] { flex:1; padding:9px 11px; border:1px solid var(--line-2); border-radius:6px; font-family:ui-monospace,monospace; font-size:13px; }
+.setup-tip { background:#f9fafb; border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--ink-2); margin-top:14px; }
+.setup-tip b { color:var(--ink); }
+.setup-tip p { margin:6px 0; }
+.mobile-fab { display:none; position:fixed; bottom:14px; right:14px; z-index:30; gap:8px; }
+.mobile-fab .btn { border-radius:999px; padding:10px 14px; box-shadow:var(--shadow); background:white; }
+@media (max-width: 800px) {
+  .app, .app.has-details { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+  aside.side, aside.details { position:fixed; left:0; right:0; bottom:0; top:auto; height:70vh; grid-column:auto; grid-row:auto; border:0; border-top:1px solid var(--line); border-top-left-radius:14px; border-top-right-radius:14px; z-index:25; box-shadow:0 -8px 30px rgba(0,0,0,.12); transform:translateY(100%); transition:transform .25s ease; }
+  aside.side.open, aside.details.open { transform:translateY(0); }
+  .app.has-details aside.details { display:block; }
+  section.map-wrap { grid-column:auto; grid-row:2; }
+  .mobile-fab { display:flex; }
+  header.top h1 { font-size:14px; }
+  .stats { font-size:12px; gap:8px; }
+  .map-legend { font-size:11px; bottom:80px; }
+}
+</style>
+</head>
+<body>
+
+<div class="setup-bg" id="setup-overlay" style="display:none;">
+  <div class="setup-card">
+    <h1>Sourcing Dashboard — Google Maps</h1>
+    <p class="lede">One-time setup: get a free Google Maps API key, paste it below, you're done.</p>
+    <h3>1. Create a Google Cloud project</h3>
+    <ol>
+      <li>Open <a href="https://console.cloud.google.com/projectcreate" target="_blank">console.cloud.google.com/projectcreate</a> and sign in with any Google account.</li>
+      <li>Name it whatever (e.g. <i>Sourcing</i>) and click <b>Create</b>.</li>
+    </ol>
+    <h3>2. Enable Maps APIs</h3>
+    <ol>
+      <li>Go to <a href="https://console.cloud.google.com/apis/library" target="_blank">APIs &amp; Services → Library</a>.</li>
+      <li>Search "<b>Maps JavaScript API</b>" → <b>Enable</b>.</li>
+      <li>Search "<b>Directions API</b>" → <b>Enable</b>.</li>
+    </ol>
+    <h3>3. Create the API key</h3>
+    <ol>
+      <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Credentials</a> → <b>+ Create credentials → API key</b>.</li>
+      <li>Copy the long string starting with <code>AIza…</code>.</li>
+    </ol>
+    <h3>4. Paste your key</h3>
+    <div class="key-row">
+      <input type="text" id="setup-key" placeholder="AIzaSy…your key here…" autocomplete="off" spellcheck="false"/>
+      <button class="btn primary" id="setup-save">Save &amp; open</button>
+    </div>
+    <div class="setup-tip">
+      <p><b>Cost:</b> $200/month free credit from Google = ~28k loads/mo. Personal sourcing typically uses 50–200/mo.</p>
+      <p><b>Recommended:</b> in Credentials → click your key → API restrictions, lock to Maps JavaScript API + Directions API only.</p>
+      <p>Your key is stored only in this browser's localStorage.</p>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none;">
+  <header class="top">
+    <h1>Sourcing</h1>
+    <div class="stats" id="stats"></div>
+    <div class="top-actions">
+      <button class="btn small" id="btn-route">Plan route</button>
+      <button class="btn small" id="btn-add">+ Store</button>
+      <button class="btn small" id="btn-place" title="Click a spot on the map to drop a new store">📍 Drop pin</button>
+      <button class="btn small" id="btn-pinsize" title="Cycle pin size (Small / Medium / Large)">Pin: S</button>
+      <button class="btn small" id="btn-logos">Logos</button>
+      <button class="btn small" id="btn-io">Import / Export</button>
+      <button class="btn small" id="btn-key" title="Change API key">🔑</button>
+    </div>
+  </header>
+  <aside class="side" id="side">
+    <div class="trip-panel empty" id="trip-panel"></div>
+    <div class="controls">
+      <input type="search" id="search" placeholder="Search address or chain…" />
+      <div>
+        <div style="font-size:11.5px; color:var(--ink-2); margin-bottom:5px;">Show by recency</div>
+        <div class="filters-row" id="recency-filters">
+          <button class="pill active" data-rec="all">All</button>
+          <button class="pill" data-rec="stale">Yellow + Red</button>
+          <button class="pill" data-rec="red">Red only</button>
+          <button class="pill" data-rec="green">Green only</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11.5px; color:var(--ink-2); margin-bottom:5px;">Chains <a href="#" id="chains-all" style="float:right; color:var(--accent); text-decoration:none; font-size:11px;">all</a></div>
+        <div class="chains" id="chains"></div>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <section class="map-wrap">
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="lg-row"><span class="lg-dot" style="background:var(--green)"></span> 0–60 days</div>
+      <div class="lg-row"><span class="lg-dot" style="background:var(--yellow)"></span> 60–90 days</div>
+      <div class="lg-row"><span class="lg-dot" style="background:var(--red)"></span> 90+ / never</div>
+    </div>
+  </section>
+  <aside class="details" id="details"></aside>
+</div>
+
+<div class="mobile-fab"><button class="btn" id="mob-list">≡ Stores</button></div>
+<div class="modal-bg" id="modal-bg"><div class="modal" id="modal"></div></div>
+
+<script>
+"use strict";
+
+const SEED_STORES = [{"id":"s1","chain":"Walmart","addr":"2189 75th St, Darien","lat":41.748744,"lng":-88.000061,"notes":"","visits":["2026-02-12"]},{"id":"s2","chain":"Walmart","addr":"200 S Bolingbrook Dr, Bolingbrook","lat":41.695724,"lng":-88.065186,"notes":"","visits":["2026-02-12"]},{"id":"s3","chain":"Walmart","addr":"1401 Illinois Rte 59, Shorewood","lat":41.546943,"lng":-88.203201,"notes":"","visits":["2026-03-18"]},{"id":"s4","chain":"Walmart","addr":"420 N Weber Rd, Romeoville","lat":41.607132,"lng":-88.126572,"notes":"","visits":[]},{"id":"s5","chain":"Walmart","addr":"2424 W Jefferson St, Joliet","lat":41.519002,"lng":-88.142349,"notes":"","visits":["2026-03-18"]},{"id":"s6","chain":"Walmart","addr":"3320 S Cicero Ave, Cicero","lat":41.830911,"lng":-87.747103,"notes":"","visits":["2026-01-22"]},{"id":"s7","chain":"Walmart","addr":"1300 Des Plaines Ave, Forest Park","lat":41.861646,"lng":-87.816689,"notes":"","visits":["2026-05-11"]},{"id":"s8","chain":"Walmart","addr":"9450 Joliet Rd, Hodgkins","lat":41.777844,"lng":-87.8636,"notes":"","visits":["2026-02-11"]},{"id":"s9","chain":"Walmart","addr":"10260 S Harlem Ave, Bridgeview","lat":41.706386,"lng":-87.800616,"notes":"","visits":["2026-03-06"]},{"id":"s10","chain":"Walmart","addr":"4700 135th St, Crestwood","lat":41.648439,"lng":-87.734191,"notes":"","visits":["2026-03-06"]},{"id":"s11","chain":"Walmart","addr":"7050 S Cicero Ave, Bedford Park","lat":41.764558,"lng":-87.743077,"notes":"","visits":[]},{"id":"s12","chain":"Walmart","addr":"2552 W 75th St, Naperville","lat":41.745579,"lng":-88.198234,"notes":"","visits":["2026-03-31"]},{"id":"s13","chain":"Walmart","addr":"2300 US-34, Oswego","lat":41.703662,"lng":-88.302364,"notes":"","visits":["2026-03-31"]},{"id":"s14","chain":"Walmart","addr":"6800 US-34, Plano","lat":41.653957,"lng":-88.563175,"notes":"","visits":["2026-03-23"]},{"id":"s15","chain":"Walmart","addr":"2300 Sycamore Rd, DeKalb","lat":41.949442,"lng":-88.721428,"notes":"","visits":[]},{"id":"s16","chain":"Walmart","addr":"2000 Orchard Rd, Montgomery","lat":41.720237,"lng":-88.372796,"notes":"","visits":["2026-03-23"]},{"id":"s17","chain":"Walmart","addr":"333 US-6, Morris","lat":41.384499,"lng":-88.417385,"notes":"","visits":["2026-05-13","2026-03-18"]},{"id":"s18","chain":"Walmart","addr":"2900 Kirk Rd, Aurora","lat":41.815305,"lng":-88.282914,"notes":"","visits":["2025-11-14"]},{"id":"s19","chain":"Walmart","addr":"801 N Randall Rd, Batavia","lat":41.863411,"lng":-88.345487,"notes":"","visits":["2026-04-08","2025-11-14"]},{"id":"s20","chain":"Walmart","addr":"3S100 IL-53, Glen Ellyn","lat":41.828396,"lng":-88.056924,"notes":"","visits":["2026-04-03"]},{"id":"s21","chain":"Walmart","addr":"900 IL-83, Villa Park","lat":41.871709,"lng":-87.962731,"notes":"","visits":[]},{"id":"s22","chain":"Walmart","addr":"1050 N Rohlwing Rd, Addison","lat":41.949832,"lng":-88.034016,"notes":"","visits":["2026-04-04"]},{"id":"s23","chain":"Walmart","addr":"314 W Army Trail Rd, Bloomingdale","lat":41.936638,"lng":-88.102585,"notes":"","visits":[]},{"id":"s24","chain":"Walmart","addr":"1100 S Randall Rd, Elgin","lat":42.003652,"lng":-88.339821,"notes":"","visits":["2025-11-17","2025-07-28"]},{"id":"s25","chain":"Walmart","addr":"365 Lake Marian Rd, Carpentersville","lat":42.119424,"lng":-88.2611,"notes":"","visits":["2026-04-16"]},{"id":"s26","chain":"Walmart","addr":"1410 S Randall Rd, Algonquin","lat":42.155346,"lng":-88.339409,"notes":"","visits":["2025-11-24"]},{"id":"s27","chain":"Walmart","addr":"12300 IL-47, Huntley","lat":42.151803,"lng":-88.429181,"notes":"","visits":["2025-11-25"]},{"id":"s28","chain":"Walmart","addr":"1205 State Rte 31, Crystal Lake","lat":42.209395,"lng":-88.2829,"notes":"","visits":["2026-04-16"]},{"id":"s29","chain":"Walmart","addr":"820 S Rand Rd, Lake Zurich","lat":42.186025,"lng":-88.087711,"notes":"","visits":["2026-04-16"]},{"id":"s30","chain":"Walmart","addr":"1555 N Rand Rd, Palatine","lat":42.137584,"lng":-88.017811,"notes":"","visits":["2025-12-12"]},{"id":"s31","chain":"Walmart","addr":"1460 Golf Rd, Rolling Meadows","lat":42.053547,"lng":-87.999802,"notes":"","visits":["2026-02-07"]},{"id":"s32","chain":"Walmart","addr":"850 S Barrington Rd, Streamwood","lat":42.015224,"lng":-88.147743,"notes":"","visits":["2026-04-08"]},{"id":"s33","chain":"Walmart","addr":"801 Meacham Rd, Elk Grove Village","lat":42.001568,"lng":-88.043686,"notes":"","visits":[]},{"id":"s34","chain":"Walmart","addr":"137 W North Ave, Northlake","lat":41.904709,"lng":-87.908743,"notes":"","visits":["2026-05-11"]},{"id":"s35","chain":"Walmart","addr":"4626 W Diversey Ave, Chicago","lat":41.934278,"lng":-87.743024,"notes":"","visits":["2026-04-30"]},{"id":"s36","chain":"Walmart","addr":"4650 W North Ave, Chicago","lat":41.911491,"lng":-87.742807,"notes":"","visits":["2026-05-05"]},{"id":"s37","chain":"Walmart","addr":"5630 W Touhy Ave, Niles","lat":42.014859,"lng":-87.768934,"notes":"","visits":["2026-05-07"]},{"id":"s38","chain":"Walmart","addr":"3626 Touhy Ave, Skokie","lat":42.013,"lng":-87.71949,"notes":"","visits":["2026-03-15"]},{"id":"s39","chain":"Walmart","addr":"8500 W Golf Rd, Niles","lat":42.056448,"lng":-87.835481,"notes":"","visits":["2026-05-07"]},{"id":"s40","chain":"Walmart","addr":"930 Mt Prospect Plaza, Mt Prospect","lat":42.069198,"lng":-87.923522,"notes":"","visits":[]},{"id":"s41","chain":"Walmart","addr":"1455 E Lake Cook Rd, Wheeling","lat":42.152342,"lng":-87.952779,"notes":"","visits":["2025-12-12"]},{"id":"s42","chain":"Walmart","addr":"555 E Townline Rd, Vernon Hills","lat":42.238621,"lng":-87.949103,"notes":"","visits":["2026-05-01"]},{"id":"s43","chain":"Walmart","addr":"3900 Fountain Square Pl, Waukegan","lat":42.344977,"lng":-87.898385,"notes":"","visits":["2026-05-01"]},{"id":"s44","chain":"Walmart","addr":"6590 Grand Ave, Gurnee","lat":42.38846,"lng":-87.966252,"notes":"","visits":[]},{"id":"s45","chain":"Walmart","addr":"2680 N Illinois 83, Round Lake Beach","lat":42.397308,"lng":-88.068784,"notes":"","visits":["2026-04-28"]},{"id":"s46","chain":"Walmart","addr":"3801 Running Brook Farm Blvd, Johnsburg","lat":42.368864,"lng":-88.271362,"notes":"","visits":["2026-04-17"]},{"id":"s47","chain":"Walmart","addr":"1275 Lake Ave, Woodstock","lat":42.297676,"lng":-88.42297,"notes":"","visits":["2026-04-17"]},{"id":"s48","chain":"Walmart","addr":"475 W Il Rte 173, Antioch","lat":42.468424,"lng":-88.064845,"notes":"","visits":["2026-04-28"]},{"id":"s49","chain":"Walmart","addr":"4000 IL-173, Zion","lat":42.466497,"lng":-87.867558,"notes":"","visits":["2026-04-23"]},{"id":"s50","chain":"Walmart","addr":"3849 Northridge Dr, Rockford","lat":42.315328,"lng":-89.031149,"notes":"","visits":["2025-06-11"]},{"id":"s51","chain":"Walmart","addr":"7219 Walton St, Rockford","lat":42.266024,"lng":-88.973248,"notes":"","visits":["2025-06-09"]},{"id":"s52","chain":"Walmart","addr":"2101 Gateway Center Dr, Belvidere","lat":42.238338,"lng":-88.817446,"notes":"","visits":["2025-06-09"]},{"id":"s53","chain":"Walmart","addr":"311 IL-38, Rochelle","lat":41.937291,"lng":-89.051535,"notes":"","visits":["2026-04-01"]},{"id":"s54","chain":"Walmart","addr":"150 Smith Rd, St. Charles","lat":41.923569,"lng":-88.260415,"notes":"","visits":["2025-11-17"]},{"id":"s55","chain":"Walmart","addr":"3902 W Riverside Blvd, Rockford","lat":42.313073,"lng":-89.113864,"notes":"","visits":["2025-06-11"]},{"id":"s56","chain":"Walmart","addr":"2500 W 95Th St, Evergreen Park","lat":41.721855,"lng":-87.685959,"notes":"","visits":["2026-05-15"]},{"id":"s57","chain":"Walmart","addr":"10900 S. Doty Avenue, Chicago","lat":41.696767,"lng":-87.599196,"notes":"","visits":["2026-02-18"]},{"id":"s58","chain":"Walmart","addr":"1100 5Th Ave, Hammond, IN","lat":41.692749,"lng":-87.519646,"notes":"","visits":[]},{"id":"s59","chain":"Walmart","addr":"17625 Torrence Ave, Lansing","lat":41.57497,"lng":-87.555345,"notes":"","visits":["2026-02-19"]},{"id":"s60","chain":"Walmart","addr":"7850 Cabela Dr, Hammond, IN","lat":41.56925,"lng":-87.481965,"notes":"","visits":["2025-07-28"]},{"id":"s61","chain":"Walmart","addr":"21000 Western Ave, Olympia Fields","lat":41.507588,"lng":-87.67753,"notes":"","visits":["2026-02-19"]},{"id":"s62","chain":"Walmart","addr":"1555 Us Highway 41, Schererville, IN","lat":41.492552,"lng":-87.467517,"notes":"","visits":[]},{"id":"s63","chain":"Walmart","addr":"2936 E 79Th Ave, Merrillville, IN","lat":41.473775,"lng":-87.300681,"notes":"","visits":["2026-05-04"]},{"id":"s64","chain":"Walmart","addr":"6087 Us Highway 6, Portage, IN","lat":41.547815,"lng":-87.179013,"notes":"","visits":[]},{"id":"s65","chain":"Walmart","addr":"4005 167Th St, Country Club Hills","lat":41.583412,"lng":-87.716184,"notes":"","visits":["2026-03-05"]},{"id":"s66","chain":"Walmart","addr":"9265 159Th St, Orland Hills","lat":41.599137,"lng":-87.842968,"notes":"","visits":[]},{"id":"s67","chain":"Walmart","addr":"22401 Central Avenue, Richton Park","lat":41.480983,"lng":-87.750313,"notes":"","visits":["2026-03-05"]},{"id":"s68","chain":"Walmart","addr":"16241 S Farrell Rd, Lockport","lat":41.5921,"lng":-88.023276,"notes":"","visits":["2026-03-10"]},{"id":"s69","chain":"Walmart","addr":"501 E Lincoln Hwy, New Lonox","lat":41.514685,"lng":-87.953391,"notes":"","visits":[]},{"id":"s70","chain":"Walmart","addr":"2400 Morthland Dr, Valparaiso, IN","lat":41.454714,"lng":-87.03338,"notes":"","visits":[]},{"id":"s71","chain":"Walmart","addr":"5780 Franklin St, Michigan City, IN","lat":41.666695,"lng":-86.888199,"notes":"","visits":[]},{"id":"s72","chain":"Walmart","addr":"2080 IL-50, Bourbonnais","lat":41.190168,"lng":-87.846688,"notes":"","visits":["2026-02-26"]},{"id":"s73","chain":"Walmart","addr":"505 Riverstone Pkwy, Kankakee","lat":41.080257,"lng":-87.861237,"notes":"","visits":["2026-02-26"]},{"id":"s74","chain":"Walmart","addr":"333 Boyd Blvd\nLa Porte","lat":41.621546,"lng":-86.692423,"notes":"","visits":[]},{"id":"s75","chain":"Walmart","addr":"1790 E Walnut St\nWatseka","lat":40.777088,"lng":-87.697426,"notes":"","visits":[]},{"id":"s76","chain":"Walmart","addr":"905 S College Ave\nRensselaer","lat":40.92382,"lng":-87.153042,"notes":"","visits":[]},{"id":"s77","chain":"Walmart","addr":"4781 E Rockton Rd\nRoscoe, IL 61073","lat":42.454203,"lng":-89.024505,"notes":"","visits":["2025-06-11"]},{"id":"s78","chain":"Walmart","addr":"2785 Milwaukee Rd Beloit, WI 53511","lat":42.526569,"lng":-88.985956,"notes":"","visits":[]},{"id":"s79","chain":"Walmart","addr":"3800 Deerfield Dr Janesville, WI 53546","lat":42.725441,"lng":-88.986562,"notes":"","visits":[]},{"id":"s80","chain":"Walmart","addr":"300 6th Ave West Monroe, WI 53566","lat":42.609493,"lng":-89.663534,"notes":"","visits":[]},{"id":"s81","chain":"Walmart","addr":"21101 Mcguire Rd\nHarvard, IL 60033","lat":42.406043,"lng":-88.611166,"notes":"","visits":["2026-04-17"]},{"id":"s82","chain":"Walmart","addr":"201 S Edwards Blvd\nLake Geneva, WI 53147","lat":42.591322,"lng":-88.412398,"notes":"","visits":[]},{"id":"s83","chain":"Walmart","addr":"2505 N Oak Dr, Plymouth, IN 46563","lat":41.364239,"lng":-86.330612,"notes":"","visits":[]},{"id":"s84","chain":"Walmart","addr":"1819 E Geneva St\nDelavan, WI 53115","lat":42.630478,"lng":-88.612419,"notes":"","visits":[]},{"id":"s85","chain":"Walmart","addr":"700 W Ireland Rd, South Bend, IN 46614","lat":41.626167,"lng":-86.258078,"notes":"","visits":[]},{"id":"s86","chain":"Walmart","addr":"316 Indian Ridge Blvd, Mishawaka, IN 46545","lat":41.715104,"lng":-86.181215,"notes":"","visits":["2026-05-13"]},{"id":"s87","chain":"Walmart","addr":"3500 Brumback Boulevard, Kenosha, WI 53144","lat":42.605426,"lng":-87.884142,"notes":"","visits":["2025-09-07"]},{"id":"s88","chain":"Walmart","addr":"5625 Washington Ave, Mt Pleasant, WI 53406","lat":42.718181,"lng":-87.848532,"notes":"","visits":["2025-09-07"]},{"id":"s89","chain":"Walmart","addr":"222 N Chicago Ave, South Milwaukee, WI 53172","lat":42.927343,"lng":-87.862631,"notes":"","visits":[]},{"id":"s90","chain":"Walmart","addr":"6701 S 27th St, Franklin, WI 53132","lat":42.923139,"lng":-87.952166,"notes":"","visits":[]},{"id":"s91","chain":"Walmart","addr":"5301 S 76th St, Greendale, WI 53129","lat":42.947819,"lng":-88.010499,"notes":"","visits":[]},{"id":"s92","chain":"Walmart","addr":"10600 W Layton Ave, Greenfield, WI 53228","lat":42.960148,"lng":-88.044111,"notes":"","visits":[]},{"id":"s93","chain":"Walmart","addr":"1901 Milwaukee Ave, Burlington, WI 53105","lat":42.703355,"lng":-88.254154,"notes":"","visits":[]},{"id":"s94","chain":"Walmart","addr":"3049 Oakes Rd, Sturtevant, WI 53177","lat":42.69463,"lng":-87.867004,"notes":"","visits":["2025-09-07"]},{"id":"s95","chain":"Target","addr":"17605 S Halsted St\nHomewood, IL 60430-2007","lat":41.569119,"lng":-87.633753,"notes":"","visits":["2026-02-19"]},{"id":"s96","chain":"Target","addr":"7300 191st St\nTinley Park, IL 60487-9361","lat":41.545036,"lng":-87.79616,"notes":"","visits":["2026-02-19"]},{"id":"s97","chain":"Target","addr":"8005 Calumet Ave\nMunster, IN 46321-1217","lat":41.567534,"lng":-87.506658,"notes":"","visits":[]},{"id":"s98","chain":"Target","addr":"5071 Cal Sag Rd\nCrestwood, IL 60445-1458","lat":41.656931,"lng":-87.746346,"notes":"","visits":["2026-03-06"]},{"id":"s99","chain":"Target","addr":"15850 S 94th Ave\nOrland Park, IL 60462-4725","lat":41.602831,"lng":-87.850525,"notes":"","visits":["2026-03-10"]},{"id":"s100","chain":"Target","addr":"10451 Indianapolis Blvd\nHighland, IN 46322-3511","lat":41.523929,"lng":-87.467718,"notes":"","visits":[]},{"id":"s101","chain":"Target","addr":"4120 W 95th St\nOak Lawn, IL 60453-2675","lat":41.721267,"lng":-87.725727,"notes":"","visits":["2026-03-06"]},{"id":"s102","chain":"Target","addr":"9885 Wicker Ave\nSt John, IN 46373-9413","lat":41.439416,"lng":-87.466898,"notes":"","visits":[]},{"id":"s103","chain":"Target","addr":"2370 E Lincoln Hwy\nNew Lenox, IL 60451-9533","lat":41.506609,"lng":-87.920917,"notes":"","visits":["2026-03-05"]},{"id":"s104","chain":"Target","addr":"7100 S Cicero Ave\nChicago, IL 60629-5813","lat":41.763138,"lng":-87.743422,"notes":"","visits":["2026-01-13"]},{"id":"s105","chain":"Target","addr":"1346 E 53rd St\nChicago, IL 60615","lat":41.799744,"lng":-87.593428,"notes":"","visits":["2026-02-18"]},{"id":"s106","chain":"Target","addr":"4433 S Pulaski Rd\nChicago, IL 60632-4010","lat":41.812422,"lng":-87.72192,"notes":"","visits":[]},{"id":"s107","chain":"Target","addr":"9250 Joliet Rd\nHodgkins, IL 60525-4162","lat":41.780882,"lng":-87.859579,"notes":"","visits":["2026-02-11"]},{"id":"s108","chain":"Target","addr":"13460 S Archer Ave\nLemont, IL 60439-4755","lat":41.644552,"lng":-88.004353,"notes":"","visits":["2026-03-10"]},{"id":"s109","chain":"Target","addr":"2661 E U.S. Hwy 30, Merrillville, IN 46410","lat":41.469127,"lng":-87.303295,"notes":"","visits":["2026-05-04"]},{"id":"s110","chain":"Target","addr":"1940 W 33rd St\nChicago, IL 60608-6107","lat":41.836052,"lng":-87.674172,"notes":"","visits":[]},{"id":"s111","chain":"Target","addr":"7601 Kingery Hwy\nWillowbrook, IL 60527-5538","lat":41.749451,"lng":-87.942977,"notes":"","visits":["2026-02-11"]},{"id":"s112","chain":"Target","addr":"2901 S Cicero Ave\nCicero, IL 60804-3637","lat":41.839638,"lng":-87.74131,"notes":"","visits":["2026-01-22"]},{"id":"s113","chain":"Target","addr":"1154 S Clark St\nChicago, IL 60605-2159","lat":41.868165,"lng":-87.631145,"notes":"","visits":["2025-10-14"]},{"id":"s114","chain":"Target","addr":"1101 W Jackson Blvd\nChicago, IL 60607-2905","lat":41.877035,"lng":-87.655493,"notes":"","visits":["2025-10-14"]},{"id":"s115","chain":"Target","addr":"800 Broadview Village Sq\nBroadview, IL 60155-4887","lat":41.855093,"lng":-87.850832,"notes":"","visits":["2026-05-11"]},{"id":"s116","chain":"Target","addr":"1200 N Larrabee St\nChicago, IL 60610","lat":41.90435,"lng":-87.644284,"notes":"","visits":[]},{"id":"s117","chain":"Target","addr":"2333 63rd St\nWoodridge, IL 60517-1300","lat":41.770392,"lng":-88.038459,"notes":"","visits":["2026-02-12"]},{"id":"s118","chain":"Target","addr":"130 S Mannheim Rd\nHillside, IL 60162-1821","lat":41.868375,"lng":-87.88729,"notes":"","visits":["2026-05-11"]},{"id":"s119","chain":"Target","addr":"2701 Plainfield Rd\nJoliet, IL 60435-1166","lat":41.577208,"lng":-88.153688,"notes":"","visits":["2026-03-18"]},{"id":"s120","chain":"Target","addr":"2434 N Sacramento Ave\nChicago, IL 60647-2666","lat":41.925861,"lng":-87.702454,"notes":"","visits":["2026-01-29"]},{"id":"s121","chain":"Target","addr":"2656 N Elston Ave\nChicago, IL 60647-2019","lat":41.928481,"lng":-87.685089,"notes":"","visits":["2025-11-16"]},{"id":"s122","chain":"Target","addr":"850 W North Ave\nMelrose Park, IL 60160-1611","lat":41.905459,"lng":-87.843464,"notes":"","visits":[]},{"id":"s123","chain":"Target","addr":"1188 W Boughton Rd\nBolingbrook, IL 60440-1508","lat":41.705225,"lng":-88.122122,"notes":"","visits":["2026-02-12"]},{"id":"s124","chain":"Target","addr":"2650 N. Clark St\nChicago, IL 60614-1523","lat":41.931188,"lng":-87.644638,"notes":"","visits":["2026-03-11"]},{"id":"s125","chain":"Target","addr":"3020 US-34, Oswego, IL 60543","lat":41.696204,"lng":-88.315932,"notes":"","visits":["2026-03-31"]},{"id":"s126","chain":"Target","addr":"1800 Orchard Gateway Blvd, North Aurora","lat":41.79802,"lng":-88.365364,"notes":"","visits":["2025-11-14"]},{"id":"s127","chain":"Target","addr":"1652 Beecher Rd, Yorkville","lat":41.662533,"lng":-88.464966,"notes":"","visits":["2026-03-23"]},{"id":"s128","chain":"Target","addr":"1951 W Jefferson Ave, Naperville","lat":41.771211,"lng":-88.203201,"notes":"","visits":["2026-04-03"]},{"id":"s129","chain":"Target","addr":"115 N Randall Rd\nBatavia","lat":41.852356,"lng":-88.342907,"notes":"","visits":["2025-11-14"]},{"id":"s130","chain":"Target","addr":"12800 S State Route 59\nPlainfield","lat":41.649907,"lng":-88.206035,"notes":"","visits":["2026-03-20"]},{"id":"s131","chain":"Target","addr":"28201 Diehl Rd\nWarrenville","lat":41.800516,"lng":-88.16969,"notes":"","visits":["2026-04-03"]},{"id":"s132","chain":"Target","addr":"3885 E Main St\nSt Charles","lat":41.91821,"lng":-88.264541,"notes":"","visits":["2025-11-17"]},{"id":"s133","chain":"Target","addr":"2420 Laporte Ave, Valparaiso","lat":41.466523,"lng":-87.030881,"notes":"","visits":[]},{"id":"s134","chain":"Target","addr":"1615 IL-50, Bourbonnais","lat":41.174113,"lng":-87.853897,"notes":"","visits":["2026-02-26"]},{"id":"s135","chain":"Target","addr":"1111 Brook Forest Ave, Shorewood","lat":41.542516,"lng":-88.20308,"notes":"","visits":["2026-03-18"]},{"id":"s136","chain":"Target","addr":"6601 Grand Ave, Gurnee, IL 60031","lat":42.382971,"lng":-87.96624,"notes":"","visits":["2026-04-28"]},{"id":"s137","chain":"Target","addr":"3050 N Lewis Ave, Waukegan, IL 60087","lat":42.408008,"lng":-87.856667,"notes":"","visits":["2026-04-23"]},{"id":"s138","chain":"Target","addr":"975 Rockland Rd, Lake Bluff, IL 60044","lat":42.278681,"lng":-87.873848,"notes":"","visits":["2026-05-01"]},{"id":"s139","chain":"Target","addr":"3100 IL-60, Mundelein, IL 60060","lat":42.284634,"lng":-88.044603,"notes":"","visits":["2026-05-01"]},{"id":"s140","chain":"Target","addr":"313 E Townline Rd, Vernon Hills, IL 60061","lat":42.238762,"lng":-87.957066,"notes":"","visits":["2026-05-01"]},{"id":"s141","chain":"Target","addr":"9777 76th St, Pleasant Prairie, WI 53158","lat":42.563833,"lng":-87.92769,"notes":"","visits":["2026-04-23"]},{"id":"s142","chain":"Target","addr":"2099 Skokie Valley Rd\nHighland Park, IL 60035-1728","lat":42.191958,"lng":-87.825194,"notes":"","visits":[]},{"id":"s143","chain":"Target","addr":"1400 E Lake Cook Rd, Wheeling, IL 60090","lat":42.154371,"lng":-87.950243,"notes":"","visits":["2025-12-12"]},{"id":"s144","chain":"Target","addr":"2241 Willow Rd, Glenview, IL 60025","lat":42.102081,"lng":-87.813675,"notes":"","visits":["2025-12-19"]},{"id":"s145","chain":"Target","addr":"555 S Rand Rd, Lake Zurich, IL 60047","lat":42.186561,"lng":-88.104271,"notes":"","visits":["2026-04-16"]},{"id":"s146","chain":"Target","addr":"679 E Dundee Rd, Palatine, IL 60074","lat":42.137124,"lng":-88.026984,"notes":"","visits":["2025-12-12"]},{"id":"s147","chain":"Target","addr":"1235 E Higgins Rd\nSchaumburg, IL 60173-4939","lat":42.03738,"lng":-88.048993,"notes":"","visits":["2026-02-07"]},{"id":"s148","chain":"Target","addr":"401 W Irving Park Rd\nWood Dale, IL 60191-1338","lat":41.967564,"lng":-87.992684,"notes":"","visits":["2026-04-04"]},{"id":"s149","chain":"Target","addr":"7000 Mannheim Rd\nRosemont, IL 60018-3621","lat":42.007146,"lng":-87.887191,"notes":"","visits":["2026-02-07"]},{"id":"s150","chain":"Target","addr":"1700 E Rand Rd\nArlington Heights, IL 60004-4379","lat":42.102026,"lng":-87.961828,"notes":"","visits":[]},{"id":"s151","chain":"Target","addr":"50 E North Ave\nVilla Park, IL 60181-1244","lat":41.907006,"lng":-87.977373,"notes":"","visits":["2026-02-06"]},{"id":"s152","chain":"Target","addr":"175 W Army Trail Rd\nGlendale Heights, IL 60139-1971","lat":41.937178,"lng":-88.099199,"notes":"","visits":["2026-04-04"]},{"id":"s153","chain":"Target","addr":"2621 W Schaumburg Rd\nSchaumburg, IL 60194-3894","lat":42.022898,"lng":-88.146065,"notes":"","visits":["2026-04-08"]},{"id":"s154","chain":"Target","addr":"239 Golf Mill Ctr\nNiles, IL 60714-1237","lat":42.052689,"lng":-87.839042,"notes":"","visits":["2026-05-07"]},{"id":"s155","chain":"Target","addr":"679 E Dundee Rd\nPalatine, IL 60074-2817","lat":42.137124,"lng":-88.026984,"notes":"","visits":[]},{"id":"s156","chain":"Target","addr":"4050 N Harlem Ave\nNorridge, IL 60706-1202","lat":41.953518,"lng":-87.809066,"notes":"","visits":["2026-01-09"]},{"id":"s157","chain":"Target","addr":"1001 Sutton Rd\nStreamwood, IL 60107-2332","lat":42.017413,"lng":-88.200156,"notes":"","visits":["2026-04-08"]},{"id":"s158","chain":"Target","addr":"6150 W Touhy Ave\nNiles, IL 60714-4621","lat":42.013017,"lng":-87.779869,"notes":"","visits":["2026-05-07"]},{"id":"s159","chain":"Target","addr":"2800 N Sutton Rd\nHoffMan Estates, IL 60192-3717","lat":42.074061,"lng":-88.193607,"notes":"","visits":["2026-04-16"]},{"id":"s160","chain":"Target","addr":"60 Yorktown Shopping Ctr\nLombard, IL 60148-5529","lat":41.84495,"lng":-88.002977,"notes":"","visits":["2026-02-06"]},{"id":"s161","chain":"Target","addr":"6525 W Diversey Ave\nChicago, IL 60707-2312","lat":41.929938,"lng":-87.789788,"notes":"","visits":["2026-05-06"]},{"id":"s162","chain":"Target","addr":"4955 Dempster St\nSkokie, IL 60077-1842","lat":42.040538,"lng":-87.751189,"notes":"","visits":["2025-12-17"]},{"id":"s163","chain":"Target","addr":"601 S County Farm Rd\nWheaton, IL 60187-4529","lat":41.859024,"lng":-88.139204,"notes":"","visits":["2026-04-03"]},{"id":"s164","chain":"Target","addr":"4631 W Foster Ave\nChicago, IL 60630","lat":41.974732,"lng":-87.744202,"notes":"","visits":["2026-01-29"]},{"id":"s165","chain":"Target","addr":"2209 Howard St\nEvanston, IL 60202-3636","lat":42.020991,"lng":-87.705251,"notes":"","visits":["2025-12-19"]},{"id":"s166","chain":"Target","addr":"2939 W Addison St\nChicago, IL 60618-4635","lat":41.945392,"lng":-87.702165,"notes":"","visits":["2025-11-16"]},{"id":"s167","chain":"Target","addr":"2112 W Peterson Ave\nChicago, IL 60659-4277","lat":41.991297,"lng":-87.682327,"notes":"","visits":["2026-03-11"]},{"id":"s168","chain":"Target","addr":"1616 Sherman Ave\nEvanston, IL 60201-5621","lat":42.047754,"lng":-87.682064,"notes":"","visits":["2025-12-19"]},{"id":"s169","chain":"Target","addr":"6422 N. Sheridan Rd Unit A\nChicago, IL 60626-5336","lat":41.998982,"lng":-87.660964,"notes":"","visits":[]},{"id":"s170","chain":"Target","addr":"3300 N. Ashland Ave\nChicago, IL 60657-2109","lat":41.94187,"lng":-87.66959,"notes":"","visits":[]},{"id":"s171","chain":"Target","addr":"4466 N Broadway St\nChicago, IL 60640-5660","lat":41.963357,"lng":-87.65646,"notes":"","visits":["2026-03-11"]},{"id":"s172","chain":"Target","addr":"300 S Randall Rd\nElgin, IL 60123-5525","lat":42.025885,"lng":-88.341996,"notes":"","visits":["2025-11-21"]},{"id":"s173","chain":"Target","addr":"530 Randall Rd\nSouth Elgin, IL 60177-3315","lat":41.976228,"lng":-88.343666,"notes":"","visits":["2025-11-17"]},{"id":"s174","chain":"Target","addr":"1664 W Division St\nChicago, IL 60622-3922","lat":41.903558,"lng":-87.670118,"notes":"","visits":[]},{"id":"s175","chain":"Target","addr":"3204 N Clark St\nChicago, IL 60657-1602","lat":41.940312,"lng":-87.651369,"notes":"","visits":["2026-03-11"]},{"id":"s176","chain":"Target","addr":"555 W Webster Ave\nChicago, IL 60614-7610","lat":41.921663,"lng":-87.642629,"notes":"","visits":[]},{"id":"s177","chain":"Target","addr":"3630 South St, Lafayette, IN 47905","lat":40.419933,"lng":-86.847444,"notes":"","visits":[]},{"id":"s178","chain":"Target","addr":"750 S Randall Rd\nAlgonquin, IL 60102-5915","lat":42.162272,"lng":-88.339416,"notes":"","visits":["2025-11-24"]},{"id":"s179","chain":"Target","addr":"5580 Northwest Hwy\nCrystal Lake, IL 60014-8016","lat":42.229166,"lng":-88.305554,"notes":"","visits":["2026-04-16"]},{"id":"s180","chain":"Target","addr":"9833 N Alpine Rd","lat":42.367442,"lng":-89.027641,"notes":"","visits":[]},{"id":"s181","chain":"Target","addr":"6560 E State St, Rockford, IL 61108","lat":42.270316,"lng":-88.988348,"notes":"","visits":[]},{"id":"s182","chain":"Target","addr":"4728 W Irving Park Rd, Chicago, IL 60641","lat":41.953666,"lng":-87.74632,"notes":"","visits":["2026-04-30"]},{"id":"s183","chain":"Target","addr":"1400 E Ireland Rd, South Bend, IN 46614","lat":41.627333,"lng":-86.228945,"notes":"","visits":[]},{"id":"s184","chain":"Target","addr":"155 E University Dr E, Granger, IN 46530","lat":41.717421,"lng":-86.17613,"notes":"","visits":["2026-05-13"]},{"id":"s185","chain":"Target","addr":"660 N Edwards Blvd, Lake Geneva, WI 53147","lat":42.598625,"lng":-88.416121,"notes":"","visits":[]},{"id":"s186","chain":"Target","addr":"5300 Durand Ave, Racine, WI 53406","lat":42.699133,"lng":-87.843157,"notes":"","visits":["2025-09-07"]},{"id":"s187","chain":"Target","addr":"2555 Sycamore Rd, DeKalb, IL 60115","lat":41.955836,"lng":-88.725189,"notes":"","visits":[]},{"id":"s188","chain":"Target","addr":"8989 S Howell Ave, Oak Creek, WI 53154","lat":42.882493,"lng":-87.916176,"notes":"","visits":[]},{"id":"s189","chain":"Target","addr":"7800 S Lovers Lane Rd, Franklin, WI 53132","lat":42.903344,"lng":-88.037837,"notes":"","visits":[]},{"id":"s190","chain":"Target","addr":"4798 S Moorland Rd, New Berlin, WI 53151","lat":42.958636,"lng":-88.107476,"notes":"","visits":[]},{"id":"s191","chain":"Target","addr":"2017 Humes Rd, Janesville, WI 53545","lat":42.72249,"lng":-88.998511,"notes":"","visits":[]},{"id":"s192","chain":"Target","addr":"1250 W Sunset Dr, Waukesha, WI 53189","lat":42.989604,"lng":-88.259806,"notes":"","visits":[]},{"id":"s193","chain":"Target","addr":"1129 Lake Street\nOak Park, IL 60301-1001","lat":41.888252,"lng":-87.803766,"notes":"","visits":["2026-01-15","2025-08-16"]},{"id":"s194","chain":"Meijer","addr":"611 US-30, Merrillville, IN 46410","lat":41.467572,"lng":-87.345687,"notes":"","visits":["2026-05-04"]},{"id":"s195","chain":"Meijer","addr":"10138 Indianapolis Blvd, Highland, IN 46322","lat":41.528388,"lng":-87.474187,"notes":"","visits":[]},{"id":"s196","chain":"Meijer","addr":"6050 US-6, Portage, IN 46368","lat":41.552019,"lng":-87.180913,"notes":"","visits":[]},{"id":"s197","chain":"Meijer","addr":"405 Porters Vale Blvd, Valparaiso, IN 46383","lat":41.472923,"lng":-87.018677,"notes":"","visits":[]},{"id":"s198","chain":"Meijer","addr":"3800 Vollmer Rd, Flossmoor","lat":41.530169,"lng":-87.710666,"notes":"","visits":["2026-03-05"]},{"id":"s199","chain":"Meijer","addr":"11305 W Lincoln Hwy, Mokena","lat":41.499951,"lng":-87.890102,"notes":"","visits":["2026-03-05"]},{"id":"s200","chain":"Meijer","addr":"15701 71st Ct, Orland Park","lat":41.604778,"lng":-87.79095,"notes":"","visits":["2026-03-10"]},{"id":"s201","chain":"Meijer","addr":"14169 S Bell Rd, Homer Glen","lat":41.631149,"lng":-87.927875,"notes":"","visits":["2026-03-10"]},{"id":"s202","chain":"Meijer","addr":"13521 Illinois Rte 59, Plainfield","lat":41.634873,"lng":-88.199688,"notes":"","visits":["2026-03-20"]},{"id":"s203","chain":"Meijer","addr":"225 N Weber Rd, Bolingbrook","lat":41.701021,"lng":-88.127614,"notes":"","visits":[]},{"id":"s204","chain":"Meijer","addr":"755 E Boughton Rd, Bolingbrook","lat":41.721264,"lng":-88.03636,"notes":"","visits":["2026-02-12"]},{"id":"s205","chain":"Meijer","addr":"2700 US-34, Oswego","lat":41.699401,"lng":-88.310412,"notes":"","visits":["2026-03-31"]},{"id":"s206","chain":"Meijer","addr":"808 Illinois Rte 59, Aurora","lat":41.76742,"lng":-88.208899,"notes":"","visits":["2026-04-03"]},{"id":"s207","chain":"Meijer","addr":"855 S Randall Rd, St. Charles","lat":41.900827,"lng":-88.343508,"notes":"","visits":["2025-11-14"]},{"id":"s208","chain":"Meijer","addr":"400 S Randall Rd, Algonquin, IL 60102","lat":42.170356,"lng":-88.338089,"notes":"","visits":["2025-11-24"]},{"id":"s209","chain":"Meijer","addr":"130 S Gary Ave, Bloomingdale, IL 60108","lat":41.955164,"lng":-88.122163,"notes":"","visits":["2026-04-04"]},{"id":"s210","chain":"Meijer","addr":"1301 Meijer Dr, Rolling Meadows, IL 60008","lat":42.048408,"lng":-87.996247,"notes":"","visits":["2026-02-07"]},{"id":"s211","chain":"Meijer","addr":"9200 S Western Ave, Evergreen Park, IL 60805","lat":41.724752,"lng":-87.68505,"notes":"","visits":["2026-05-15"]},{"id":"s212","chain":"Meijer","addr":"5150 Franklin St, Michigan City, IN 46360","lat":41.675204,"lng":-86.889836,"notes":"","visits":[]},{"id":"s213","chain":"Meijer","addr":"2253 N Richmond Rd, McHenry, IL 60051","lat":42.359907,"lng":-88.27047,"notes":"","visits":["2026-04-17"]},{"id":"s214","chain":"Meijer","addr":"750 E Rollins Rd, Round Lake Beach, IL 60073","lat":42.381052,"lng":-88.065632,"notes":"","visits":["2026-04-28"]},{"id":"s215","chain":"Meijer","addr":"815 Randall Rd, Elgin, IL 60123","lat":42.011823,"lng":-88.334589,"notes":"","visits":["2025-11-21"]},{"id":"s216","chain":"Meijer","addr":"2013 McFarland Rd, Rockford, IL 61107","lat":42.29263,"lng":-88.976138,"notes":"","visits":[]},{"id":"s217","chain":"Meijer","addr":"1770 West Lane Rd, Machesney Park, IL 61115","lat":42.368296,"lng":-89.011427,"notes":"","visits":[]},{"id":"s218","chain":"Meijer","addr":"3600 Portage Rd, South Bend, IN 46628","lat":41.726238,"lng":-86.285713,"notes":"","visits":[]},{"id":"s219","chain":"Meijer","addr":"5020 Grape Rd, Mishawaka, IN 46545","lat":41.706111,"lng":-86.185278,"notes":"","visits":["2026-05-13"]},{"id":"s220","chain":"Meijer","addr":"3610 Bremen Hwy, Mishawaka, IN 46544","lat":41.627659,"lng":-86.172529,"notes":"","visits":["2026-05-13"]},{"id":"s221","chain":"Meijer","addr":"7701 Green Bay Rd, Kenosha, WI 53142","lat":42.564011,"lng":-87.885559,"notes":"","visits":["2026-04-23"]},{"id":"s222","chain":"Meijer","addr":"171 W Town Square Way, Oak Creek, WI 53154","lat":42.898593,"lng":-87.91494,"notes":"","visits":[]},{"id":"s223","chain":"Meijer","addr":"5800 W Layton Ave, Greenfield, WI 53220","lat":42.960858,"lng":-87.986536,"notes":"","visits":[]},{"id":"s224","chain":"Meijer","addr":"801 E Sunset Dr, Waukesha, WI 53189","lat":42.986584,"lng":-88.219399,"notes":"","visits":[]},{"id":"s225","chain":"Meijer","addr":"990 N Bradley Blvd, Bradley, IL 60915","lat":41.158872,"lng":-87.847352,"notes":"","visits":["2026-02-26"]},{"id":"s226","chain":"Ollie's","addr":"1335 E 79th Ave, Merrillville, IN 46410","lat":41.473428,"lng":-87.320436,"notes":"","visits":["2026-05-04"]},{"id":"s227","chain":"Ollie's","addr":"4070 Fox Valley Center Dr, Aurora, IL 60504","lat":41.760331,"lng":-88.217458,"notes":"","visits":["2026-03-31"]},{"id":"s228","chain":"Ollie's","addr":"960 S Barrington Rd, Streamwood, IL 60107","lat":42.012803,"lng":-88.146973,"notes":"","visits":["2026-04-08"]},{"id":"s229","chain":"Ollie's","addr":"4483 Northwest Hwy, Crystal Lake, IL 60014","lat":42.222395,"lng":-88.286215,"notes":"","visits":["2026-04-16"]},{"id":"s230","chain":"Ollie's","addr":"2215 80th St, Kenosha, WI 53143","lat":42.557174,"lng":-87.836172,"notes":"","visits":["2026-04-23"]},{"id":"s231","chain":"Ollie's","addr":"5830 E State St, Rockford, IL 61108","lat":42.268438,"lng":-89.002546,"notes":"","visits":[]},{"id":"s232","chain":"Ollie's","addr":"69 \u00bd, Pine Lake Ave, La Porte, IN 46350","lat":41.615326,"lng":-86.727386,"notes":"","visits":["2026-05-13"]},{"id":"s233","chain":"Ollie's","addr":"6011 Grape Rd, Mishawaka, IN 46545","lat":41.714966,"lng":-86.188599,"notes":"","visits":["2026-05-13"]},{"id":"s234","chain":"Ollie's","addr":"2350 Sycamore Rd E, DeKalb, IL 60115","lat":41.951713,"lng":-88.723609,"notes":"","visits":["2026-04-01"]},{"id":"s235","chain":"Ollie's","addr":"340 Summit Dr, Lockport, IL 60441","lat":41.592591,"lng":-88.039251,"notes":"","visits":["2026-03-20"]},{"id":"s236","chain":"Ollie's","addr":"3045 183rd St, Homewood, IL 60430","lat":41.556014,"lng":-87.691832,"notes":"","visits":["2026-03-05"]},{"id":"s237","chain":"Marshalls/TJ/HG","addr":"6233 E State St, Rockford, IL 61108","lat":42.265124,"lng":-88.995022,"notes":"","visits":[]},{"id":"s238","chain":"Marshalls/TJ/HG","addr":"6128 Grand Ave, Gurnee, IL 60031","lat":42.387707,"lng":-87.956813,"notes":"","visits":["2026-04-28"]},{"id":"s239","chain":"Marshalls/TJ/HG","addr":"3957 Fountain Square Pl, Waukegan, IL 60085","lat":42.342252,"lng":-87.898026,"notes":"","visits":["2026-05-01"]},{"id":"s240","chain":"Marshalls/TJ/HG","addr":"370 Half Day Rd, Buffalo Grove, IL 60089","lat":42.198377,"lng":-87.96577,"notes":"","visits":["2026-05-01"]},{"id":"s241","chain":"Marshalls/TJ/HG","addr":"94 S Waukegan Rd, Deerfield, IL 60015","lat":42.150906,"lng":-87.836326,"notes":"","visits":[]},{"id":"s242","chain":"Marshalls/TJ/HG","addr":"310 E Rand Rd Ste 392, Arlington Heights, IL 60004","lat":42.112264,"lng":-87.977283,"notes":"","visits":[]},{"id":"s243","chain":"Marshalls/TJ/HG","addr":"1127 E Rand Rd, Mt Prospect, IL 60056","lat":42.067475,"lng":-87.918974,"notes":"","visits":[]},{"id":"s244","chain":"Marshalls/TJ/HG","addr":"1488 Golf Rd, Schaumburg, IL 60173","lat":42.052133,"lng":-88.040535,"notes":"","visits":["2026-02-07"]},{"id":"s245","chain":"Marshalls/TJ/HG","addr":"1031 S Sutton Rd, Streamwood, IL 60107","lat":42.016133,"lng":-88.200468,"notes":"","visits":["2026-04-08"]},{"id":"s246","chain":"Marshalls/TJ/HG","addr":"1596 S Randall Rd, Geneva, IL 60134","lat":41.871186,"lng":-88.342984,"notes":"","visits":["2025-11-14"]},{"id":"s247","chain":"Marshalls/TJ/HG","addr":"1931 Glacier Park Ave, Naperville, IL 60540","lat":41.773948,"lng":-88.204343,"notes":"","visits":["2026-04-03"]},{"id":"s248","chain":"Marshalls/TJ/HG","addr":"975 Erica Ln, Yorkville, IL 60560","lat":41.664905,"lng":-88.465524,"notes":"","visits":["2026-03-23"]},{"id":"s249","chain":"Marshalls/TJ/HG","addr":"1008 Brook Forest Ave, Shorewood, IL 60404","lat":41.539347,"lng":-88.197135,"notes":"","visits":["2026-03-18"]},{"id":"s250","chain":"Marshalls/TJ/HG","addr":"1158 W Boughton Rd, Bolingbrook, IL 60440","lat":41.705182,"lng":-88.121013,"notes":"","visits":["2026-02-12"]},{"id":"s251","chain":"Marshalls/TJ/HG","addr":"7125 Kingery Hwy, Willowbrook, IL 60516","lat":41.760137,"lng":-87.942248,"notes":"","visits":["2026-02-11"]},{"id":"s252","chain":"Marshalls/TJ/HG","addr":"8249 W Golf Rd, Niles, IL 60714","lat":42.052431,"lng":-87.832399,"notes":"","visits":["2026-05-07"]},{"id":"s253","chain":"Marshalls/TJ/HG","addr":"9445 Skokie Blvd, Skokie, IL 60076","lat":42.052936,"lng":-87.745619,"notes":"","visits":["2025-12-17"]},{"id":"s254","chain":"Marshalls/TJ/HG","addr":"2400 Main St, Evanston, IL 60201","lat":42.032005,"lng":-87.70766,"notes":"","visits":[]},{"id":"s255","chain":"Marshalls/TJ/HG","addr":"4725 N Harlem Ave, Harwood Heights, IL 60656","lat":41.965463,"lng":-87.806715,"notes":"","visits":["2026-05-06"]},{"id":"s256","chain":"Marshalls/TJ/HG","addr":"4612 W. Irving Boulevard, Chicago, IL 60641","lat":41.954018,"lng":-87.743394,"notes":"","visits":["2026-04-30"]},{"id":"s257","chain":"Marshalls/TJ/HG","addr":"3131 N Clark St, Chicago, IL 60657","lat":41.939131,"lng":-87.649678,"notes":"","visits":["2026-03-11"]},{"id":"s258","chain":"Marshalls/TJ/HG","addr":"1834 W Fullerton Ave, Chicago, IL 60614","lat":41.925576,"lng":-87.673706,"notes":"","visits":["2026-01-14"]},{"id":"s259","chain":"Marshalls/TJ/HG","addr":"2544 N Narragansett Ave, Chicago, IL 60639","lat":41.926691,"lng":-87.788247,"notes":"","visits":["2026-05-06"]},{"id":"s260","chain":"Marshalls/TJ/HG","addr":"1220 Winston Plaza, Melrose Park, IL 60160","lat":41.905714,"lng":-87.849098,"notes":"","visits":[]},{"id":"s261","chain":"Marshalls/TJ/HG","addr":"1101 S Canal St, Chicago, IL 60607","lat":41.869438,"lng":-87.638638,"notes":"","visits":["2025-12-15"]},{"id":"s262","chain":"Marshalls/TJ/HG","addr":"7163 Cermak Rd, Berwyn, IL 60402","lat":41.848839,"lng":-87.802503,"notes":"","visits":["2026-05-11"]},{"id":"s263","chain":"Marshalls/TJ/HG","addr":"300 Broadview Village Square, Broadview, IL 60153","lat":41.851266,"lng":-87.848641,"notes":"","visits":["2026-05-11"]},{"id":"s264","chain":"Marshalls/TJ/HG","addr":"5555 S Brainard Ave, Countryside, IL 60525","lat":41.787829,"lng":-87.876873,"notes":"","visits":["2026-02-11"]},{"id":"s265","chain":"Marshalls/TJ/HG","addr":"3938 S Harlem Ave, Lyons, IL 60534","lat":41.819713,"lng":-87.804044,"notes":"","visits":["2026-02-11"]},{"id":"s266","chain":"Marshalls/TJ/HG","addr":"4130 S Pulaski Rd, Chicago, IL 60632","lat":41.817776,"lng":-87.725634,"notes":"","visits":[]},{"id":"s267","chain":"Marshalls/TJ/HG","addr":"5102 S Lake Park Ave, Chicago, IL 60615","lat":41.802225,"lng":-87.588127,"notes":"","visits":["2026-02-18"]},{"id":"s268","chain":"Marshalls/TJ/HG","addr":"7601 S Cicero Ave, Chicago, IL 60652","lat":41.757784,"lng":-87.739463,"notes":"","visits":["2026-01-13"]},{"id":"s269","chain":"Marshalls/TJ/HG","addr":"9601 S Cicero Ave, Oak Lawn, IL 60453","lat":41.718193,"lng":-87.739617,"notes":"","visits":["2026-01-13"]},{"id":"s270","chain":"Marshalls/TJ/HG","addr":"253 Commons Dr, Chicago Ridge, IL 60415","lat":41.71052,"lng":-87.782764,"notes":"","visits":["2026-03-06"]},{"id":"s271","chain":"Marshalls/TJ/HG","addr":"101 Orland Park Pl, Orland Park, IL 60462","lat":41.611948,"lng":-87.850777,"notes":"","visits":["2026-03-10"]},{"id":"s272","chain":"Marshalls/TJ/HG","addr":"500 River Oaks Dr, Calumet City, IL 60409","lat":41.598561,"lng":-87.562086,"notes":"","visits":["2026-02-18"]},{"id":"s273","chain":"Marshalls/TJ/HG","addr":"4808 Lincoln Hwy, Matteson, IL 60443","lat":41.508475,"lng":-87.733835,"notes":"","visits":["2026-02-19"]},{"id":"s274","chain":"Marshalls/TJ/HG","addr":"155 US-41, Schererville, IN 46375","lat":41.519554,"lng":-87.46826,"notes":"","visits":[]},{"id":"s275","chain":"Marshalls/TJ/HG","addr":"1525 IL-50, Bourbonnais, IL 60914","lat":41.17164,"lng":-87.854211,"notes":"","visits":["2026-02-26"]},{"id":"s276","chain":"Marshalls/TJ/HG","addr":"91 Silhavy Rd, Valparaiso, IN 46383","lat":41.467389,"lng":-87.024433,"notes":"","visits":[]},{"id":"s277","chain":"Marshalls/TJ/HG","addr":"4530 Grape Rd, Mishawaka, IN 46545","lat":41.700662,"lng":-86.183803,"notes":"","visits":["2026-05-13"]},{"id":"s278","chain":"Marshalls/TJ/HG","addr":"5914 75th St, Kenosha, WI 53142","lat":42.568569,"lng":-87.877909,"notes":"","visits":["2026-04-23"]},{"id":"s279","chain":"Marshalls/TJ/HG","addr":"3551 S 27th St, Milwaukee, WI 53221","lat":42.979244,"lng":-87.952272,"notes":"","visits":[]},{"id":"s280","chain":"Marshalls/TJ/HG","addr":"1548 Butterfield Rd, Downers Grove, IL 60515","lat":41.835299,"lng":-88.023608,"notes":"","visits":["2026-02-06"]},{"id":"s281","chain":"Marshalls/TJ/HG","addr":"1500 Pilgrim Ln #120, Plymouth, IN 46563","lat":41.363752,"lng":-86.327225,"notes":"","visits":[]},{"id":"s282","chain":"TJ Maxx","addr":"6521 Grand Ave, Gurnee, IL 60031","lat":42.381164,"lng":-87.96575,"notes":"","visits":["2026-04-28"]},{"id":"s283","chain":"TJ Maxx","addr":"3400 Shoppers Dr, McHenry, IL 60050","lat":42.367428,"lng":-88.263942,"notes":"","visits":["2026-04-17"]},{"id":"s284","chain":"TJ Maxx","addr":"3000 W Illinois-60, Mundelein, IL 60060","lat":42.2828,"lng":-88.043369,"notes":"","visits":["2026-05-01"]},{"id":"s285","chain":"TJ Maxx","addr":"701 North Milwaukee Ave, Vernon Hills, IL 60061","lat":42.238507,"lng":-87.940774,"notes":"","visits":["2026-05-01"]},{"id":"s286","chain":"TJ Maxx","addr":"725 W State Rte 22, Lake Zurich, IL 60047","lat":42.188949,"lng":-88.10769,"notes":"","visits":["2026-04-16"]},{"id":"s287","chain":"TJ Maxx","addr":"5764 Northwest Hwy, Crystal Lake, IL 60014","lat":42.228096,"lng":-88.310811,"notes":"","visits":["2026-04-16"]},{"id":"s288","chain":"TJ Maxx","addr":"832 S Randall Rd, Algonquin, IL 60102","lat":42.158463,"lng":-88.339596,"notes":"","visits":["2025-11-24"]},{"id":"s289","chain":"TJ Maxx","addr":"2700 Sutton Rd, Hoffman Estates, IL 60195","lat":42.072748,"lng":-88.193684,"notes":"","visits":["2026-04-16"]},{"id":"s290","chain":"TJ Maxx","addr":"715 E Dundee Rd, Palatine, IL 60074","lat":42.137031,"lng":-88.026019,"notes":"","visits":["2025-12-12"]},{"id":"s291","chain":"TJ Maxx","addr":"49 Skokie Blvd, Northbrook, IL 60062","lat":42.151539,"lng":-87.799929,"notes":"","visits":[]},{"id":"s292","chain":"TJ Maxx","addr":"19B Golf Center, Hoffman Estates, IL 60195","lat":42.04744,"lng":-88.08276,"notes":"","visits":["2026-02-07"]},{"id":"s293","chain":"TJ Maxx","addr":"1009 West Lane Rd, Machesney Park, IL 61115","lat":42.363877,"lng":-89.035011,"notes":"","visits":[]},{"id":"s294","chain":"TJ Maxx","addr":"2546 Sycamore Rd, DeKalb, IL 60115","lat":41.954983,"lng":-88.719632,"notes":"","visits":[]},{"id":"s295","chain":"TJ Maxx","addr":"486 S Randall Rd, South Elgin, IL 60177","lat":41.977933,"lng":-88.343818,"notes":"","visits":["2025-11-17"]},{"id":"s296","chain":"TJ Maxx","addr":"3635 E Main St, St. Charles, IL 60174","lat":41.918834,"lng":-88.271992,"notes":"","visits":["2025-11-17"]},{"id":"s297","chain":"TJ Maxx","addr":"3030 US-34, Oswego, IL 60543","lat":41.695899,"lng":-88.316952,"notes":"","visits":["2026-03-31"]},{"id":"s298","chain":"TJ Maxx","addr":"3111 111th St, Naperville, IL 60540","lat":41.682312,"lng":-88.208073,"notes":"","visits":["2026-03-20"]},{"id":"s299","chain":"TJ Maxx","addr":"375 S Weber Rd, Romeoville, IL 60446","lat":41.610439,"lng":-88.120765,"notes":"","visits":["2026-03-20"]},{"id":"s300","chain":"TJ Maxx","addr":"62 Danada Square W, Wheaton, IL 60189","lat":41.831701,"lng":-88.107988,"notes":"","visits":["2026-04-03"]},{"id":"s301","chain":"TJ Maxx","addr":"485 E Lincoln Hwy, New Lenox, IL 60451","lat":41.51429,"lng":-87.955367,"notes":"","visits":["2026-03-05"]},{"id":"s302","chain":"TJ Maxx","addr":"7349 Lemont Rd, Downers Grove, IL 60516","lat":41.752918,"lng":-88.010539,"notes":"","visits":["2026-02-12"]},{"id":"s303","chain":"TJ Maxx","addr":"156 S Gary Ave, Bloomingdale, IL 60108","lat":41.949298,"lng":-88.122732,"notes":"","visits":["2026-04-04"]},{"id":"s304","chain":"TJ Maxx","addr":"2155 W 22nd St, Oak Brook, IL 60521","lat":41.84514,"lng":-87.969467,"notes":"","visits":["2026-02-06"]},{"id":"s305","chain":"TJ Maxx","addr":"5555 S Brainard Ave, Countryside, IL 60525","lat":41.787824,"lng":-87.87614,"notes":"","visits":["2026-02-11"]},{"id":"s306","chain":"TJ Maxx","addr":"2099 1/2 N Mannheim Rd, Melrose Park, IL 60160","lat":41.914242,"lng":-87.882704,"notes":"","visits":["2026-05-11"]},{"id":"s307","chain":"TJ Maxx","addr":"6456 W Irving Park Rd, Chicago, IL 60634","lat":41.954052,"lng":-87.788794,"notes":"","visits":["2026-05-06"]},{"id":"s308","chain":"TJ Maxx","addr":"6165 N Lincoln Ave, Chicago, IL 60659","lat":41.994742,"lng":-87.711797,"notes":"","visits":["2026-03-15"]},{"id":"s309","chain":"TJ Maxx","addr":"3262 W Belmont Ave, Chicago, IL 60618","lat":41.940042,"lng":-87.711599,"notes":"","visits":[]},{"id":"s310","chain":"TJ Maxx","addr":"2739 N Clark St, Chicago, IL 60614","lat":41.932506,"lng":-87.644583,"notes":"","visits":["2026-03-11"]},{"id":"s311","chain":"TJ Maxx","addr":"7250 Dempster St, Morton Grove, IL 60053","lat":42.042051,"lng":-87.808779,"notes":"","visits":["2026-05-07"]},{"id":"s312","chain":"TJ Maxx","addr":"3337 Golf Rd, Skokie, IL 60203","lat":42.052459,"lng":-87.711459,"notes":"","visits":["2025-12-19"]},{"id":"s313","chain":"TJ Maxx","addr":"7252 W 191st St, Tinley Park, IL 60487","lat":41.547468,"lng":-87.793652,"notes":"","visits":["2026-02-19"]},{"id":"s314","chain":"TJ Maxx","addr":"17900 Halsted St, Homewood, IL 60430","lat":41.564976,"lng":-87.638672,"notes":"","visits":["2026-02-19"]},{"id":"s315","chain":"TJ Maxx","addr":"4960 W 111th St, Oak Lawn, IL 60453","lat":41.692551,"lng":-87.743774,"notes":"","visits":["2026-03-06"]},{"id":"s316","chain":"TJ Maxx","addr":"4932 S Kedzie Ave, Chicago, IL 60632","lat":41.803621,"lng":-87.705262,"notes":"","visits":["2026-05-15"]},{"id":"s317","chain":"TJ Maxx","addr":"9660 S Western Ave, Evergreen Park, IL 60805","lat":41.717023,"lng":-87.684526,"notes":"","visits":["2026-05-15"]},{"id":"s318","chain":"TJ Maxx","addr":"3562 E 118th St, Chicago, IL 60617","lat":41.682228,"lng":-87.536066,"notes":"","visits":["2026-02-18"]},{"id":"s319","chain":"TJ Maxx","addr":"40 Main St, Schererville, IN 46375","lat":41.521977,"lng":-87.472423,"notes":"","visits":[]},{"id":"s320","chain":"TJ Maxx","addr":"1684 E 80th Ave, Merrillville, IN 46410","lat":41.47391,"lng":-87.313942,"notes":"","visits":["2026-05-04"]},{"id":"s321","chain":"TJ Maxx","addr":"218 Dunes Plaza, Michigan City, IN 46360","lat":41.678471,"lng":-86.89843,"notes":"","visits":[]},{"id":"s322","chain":"TJ Maxx","addr":"5838 Grape Rd, Mishawaka, IN 46545","lat":41.715271,"lng":-86.183614,"notes":"","visits":["2026-05-13"]},{"id":"s323","chain":"TJ Maxx","addr":"1290 E Ireland Rd, South Bend, IN 46614","lat":41.626023,"lng":-86.231345,"notes":"","visits":[]},{"id":"s324","chain":"TJ Maxx","addr":"620 N Edwards Blvd, Lake Geneva, WI 53147","lat":42.597248,"lng":-88.415398,"notes":"","visits":[]},{"id":"s325","chain":"TJ Maxx","addr":"2308 S Green Bay Rd, Racine, WI 53406","lat":42.704586,"lng":-87.853683,"notes":"","visits":["2025-09-07"]},{"id":"s326","chain":"TJ Maxx","addr":"8571 S Howell Ave, Oak Creek, WI 53154","lat":42.888838,"lng":-87.913828,"notes":"","visits":[]},{"id":"s327","chain":"TJ Maxx","addr":"5200 S 76th St, Greendale, WI 53129","lat":42.950234,"lng":-88.005069,"notes":"","visits":[]},{"id":"s328","chain":"TJ Maxx","addr":"1160 W Sunset Dr, Waukesha, WI 53189","lat":42.991533,"lng":-88.256559,"notes":"","visits":[]},{"id":"s329","chain":"TJ Maxx","addr":"1054 Center Dr, Mt Prospect, IL 60056","lat":42.085112,"lng":-87.934758,"notes":"","visits":[]},{"id":"s330","chain":"Five Below","addr":"13210 S Cicero Ave, Midlothian, IL 60445","lat":41.651147,"lng":-87.741321,"notes":"","visits":["2025-09-22"]},{"id":"s331","chain":"Five Below","addr":"17920 S Halsted St, Homewood, IL 60430","lat":41.564169,"lng":-87.638371,"notes":"","visits":["2025-09-19"]},{"id":"s332","chain":"Five Below","addr":"7400 W 191st St, Tinley Park, IL 60487","lat":41.548627,"lng":-87.79827,"notes":"","visits":["2025-09-19"]},{"id":"s333","chain":"Five Below","addr":"9275 W 159th St, Orland Hills, IL 60487","lat":41.598868,"lng":-87.845957,"notes":"","visits":["2026-03-10","2025-09-20"]},{"id":"s334","chain":"Five Below","addr":"242 Commons Dr, Chicago Ridge, IL 60415","lat":41.710906,"lng":-87.782751,"notes":"","visits":["2025-10-02"]},{"id":"s335","chain":"Five Below","addr":"6451 W Diversey Ave, Chicago, IL 60707","lat":41.930676,"lng":-87.787586,"notes":"","visits":[]},{"id":"s336","chain":"Five Below","addr":"4104 N Harlem Ave, Norridge, IL 60706","lat":41.957479,"lng":-87.807645,"notes":"","visits":["2026-01-09"]},{"id":"s337","chain":"Five Below","addr":"4655 W Foster Ave, Chicago, IL 60630","lat":41.974185,"lng":-87.745768,"notes":"","visits":["2025-12-19"]},{"id":"s338","chain":"Five Below","addr":"6133 N Lincoln Ave, Chicago, IL 60659","lat":41.994264,"lng":-87.71162,"notes":"","visits":["2025-09-13"]},{"id":"s339","chain":"Five Below","addr":"5415 W Touhy Ave, Skokie, IL 60077","lat":42.010624,"lng":-87.76411,"notes":"","visits":["2025-09-13"]},{"id":"s340","chain":"Five Below","addr":"2400 Main St, Evanston, IL 60201","lat":42.031769,"lng":-87.707627,"notes":"","visits":[]},{"id":"s341","chain":"Five Below","addr":"30 Countryside Plaza, Countryside, IL 60525","lat":41.781901,"lng":-87.872095,"notes":"","visits":["2026-02-11"]},{"id":"s342","chain":"Five Below","addr":"170 S Mannheim Rd, Hillside, IL 60162","lat":41.8668,"lng":-87.885011,"notes":"","visits":[]},{"id":"s343","chain":"Five Below","addr":"7501 Cermak Rd, North Riverside, IL 60546","lat":41.84695,"lng":-87.810193,"notes":"","visits":["2025-09-29"]},{"id":"s344","chain":"Five Below","addr":"1001 75th St #171, Woodridge, IL 60517","lat":41.749714,"lng":-88.016988,"notes":"","visits":[]},{"id":"s345","chain":"Five Below","addr":"257 N Weber Rd A, Bolingbrook, IL 60490","lat":41.703726,"lng":-88.130435,"notes":"","visits":["2026-02-12","2025-08-07"]},{"id":"s346","chain":"Five Below","addr":"351 S Weber Rd, Romeoville, IL 60446","lat":41.611724,"lng":-88.121016,"notes":"","visits":["2025-08-07"]},{"id":"s347","chain":"Five Below","addr":"2721 Plainfield Rd, Joliet, IL 60435","lat":41.577432,"lng":-88.154753,"notes":"","visits":["2025-07-03"]},{"id":"s348","chain":"Five Below","addr":"12736 Illinois Rte 59, Plainfield, IL 60585","lat":41.650781,"lng":-88.206033,"notes":"","visits":["2025-08-07"]},{"id":"s349","chain":"Five Below","addr":"348 S Rte 59, Naperville, IL 60540","lat":41.766202,"lng":-88.203784,"notes":"","visits":["2025-08-29"]},{"id":"s350","chain":"Five Below","addr":"2976 W Illinois-60, Mundelein, IL 60060","lat":42.28205,"lng":-88.042912,"notes":"","visits":["2025-09-14"]},{"id":"s351","chain":"Five Below","addr":"5460 Northwest Hwy #500, Crystal Lake, IL 60014","lat":42.228893,"lng":-88.304021,"notes":"","visits":[]},{"id":"s352","chain":"Five Below","addr":"1976 S Randall Rd B24, Algonquin, IL 60102","lat":42.148192,"lng":-88.339951,"notes":"","visits":[]},{"id":"s353","chain":"Five Below","addr":"2346 N Richmond Rd, McHenry, IL 60051","lat":42.360437,"lng":-88.264452,"notes":"","visits":["2026-04-17"]},{"id":"s354","chain":"Five Below","addr":"3551 S 27th St, Milwaukee, WI 53221","lat":42.979503,"lng":-87.952219,"notes":"","visits":[]},{"id":"s355","chain":"Five Below","addr":"3027 S Cicero Ave, Cicero, IL 60804","lat":41.838486,"lng":-87.741601,"notes":"","visits":["2025-09-26"]},{"id":"s356","chain":"Five Below","addr":"16101 S Harlem Ave, Tinley Park, IL 60477","lat":41.597921,"lng":-87.792396,"notes":"","visits":["2025-09-20"]},{"id":"s357","chain":"Ross","addr":"1812 S Randall Rd, Algonquin, IL 60102","lat":42.152099,"lng":-88.339627,"notes":"","visits":["2025-11-24"]},{"id":"s358","chain":"Ross","addr":"6000 Northwest Hwy, Crystal Lake, IL 60014","lat":42.227898,"lng":-88.313057,"notes":"","visits":["2026-04-16"]},{"id":"s359","chain":"Ross","addr":"3328 Shoppers Dr, McHenry, IL 60051","lat":42.365771,"lng":-88.263194,"notes":"","visits":["2026-04-17"]},{"id":"s360","chain":"Ross","addr":"260 E Rollins Rd, Round Lake Beach, IL 60073","lat":42.381252,"lng":-88.075944,"notes":"","visits":["2026-04-28"]},{"id":"s361","chain":"Ross","addr":"5915 75th St, Kenosha, WI 53140","lat":42.5685,"lng":-87.878769,"notes":"","visits":["2026-04-23"]},{"id":"s362","chain":"Ross","addr":"2709 S Green Bay Rd, Racine, WI 53406","lat":42.699614,"lng":-87.851097,"notes":"","visits":["2025-09-07"]},{"id":"s363","chain":"Ross","addr":"3533 S 27th St, Milwaukee, WI 53221","lat":42.980578,"lng":-87.951679,"notes":"","visits":[]},{"id":"s364","chain":"Ross","addr":"8600 Sura Ln, Greenfield, WI 53220","lat":42.961018,"lng":-88.0205,"notes":"","visits":[]},{"id":"s365","chain":"Ross","addr":"15480 Beloit Rd, New Berlin, WI 53151","lat":42.958381,"lng":-88.105873,"notes":"","visits":[]},{"id":"s366","chain":"Ross","addr":"1110 W Sunset Dr #110, Waukesha, WI 53189","lat":42.989857,"lng":-88.253746,"notes":"","visits":[]},{"id":"s367","chain":"Ross","addr":"16950 W Bluemound Rd, Brookfield, WI 53005","lat":43.038553,"lng":-88.123591,"notes":"","visits":[]},{"id":"s368","chain":"Ross","addr":"6800 W Greenfield Ave, West Allis, WI 53214","lat":43.019124,"lng":-87.998468,"notes":"","visits":[]},{"id":"s369","chain":"Ross","addr":"2627 N Elston Ave, Chicago, IL 60647","lat":41.929907,"lng":-87.681734,"notes":"","visits":["2026-01-14"]},{"id":"s370","chain":"Ross","addr":"918 W Montrose Ave, Chicago, IL 60613","lat":41.961984,"lng":-87.653259,"notes":"","visits":["2026-03-11"]},{"id":"s371","chain":"Ross","addr":"4027 W Diversey Ave, Chicago, IL 60647","lat":41.931331,"lng":-87.728174,"notes":"","visits":["2026-04-30"]},{"id":"s372","chain":"Ross","addr":"3927 N Cicero Ave, Chicago, IL 60641","lat":41.952622,"lng":-87.747117,"notes":"","visits":[]},{"id":"s373","chain":"Ross","addr":"6560 W Fullerton Ave, Chicago, IL 60639","lat":41.924485,"lng":-87.789562,"notes":"","visits":["2026-05-06"]},{"id":"s374","chain":"Ross","addr":"4219 N Harlem Ave, Norridge, IL 60706","lat":41.95776,"lng":-87.805801,"notes":"","visits":["2026-05-06"]},{"id":"s375","chain":"Ross","addr":"4649 W Foster Ave, Chicago, IL 60630","lat":41.974231,"lng":-87.745001,"notes":"","visits":["2026-01-29"]},{"id":"s376","chain":"Ross","addr":"6103 N Lincoln Ave, Chicago, IL 60659","lat":41.993689,"lng":-87.711313,"notes":"","visits":["2026-03-15"]},{"id":"s377","chain":"Ross","addr":"4939 W North Ave, Chicago, IL 60639","lat":41.908435,"lng":-87.750101,"notes":"","visits":["2026-05-05"]},{"id":"s378","chain":"Ross","addr":"5750 W Touhy Ave, Niles, IL 60714","lat":42.013843,"lng":-87.770879,"notes":"","visits":["2026-05-07"]},{"id":"s379","chain":"Ross","addr":"2640 W Pershing Rd, Chicago, IL 60623","lat":41.823165,"lng":-87.691164,"notes":"","visits":[]},{"id":"s380","chain":"Ross","addr":"3053 W 26th St, Chicago, IL 60623","lat":41.843699,"lng":-87.701978,"notes":"","visits":[]},{"id":"s381","chain":"Ross","addr":"2945 S Cicero Ave, Cicero, IL 60804","lat":41.83895,"lng":-87.741194,"notes":"","visits":["2026-01-22"]},{"id":"s382","chain":"Ross","addr":"9290 Joliet Rd, Hodgkins, IL 60525","lat":41.779589,"lng":-87.861051,"notes":"","visits":["2026-02-11"]},{"id":"s383","chain":"Ross","addr":"7601 Cicero Ave, Chicago, IL 60652","lat":41.757643,"lng":-87.737732,"notes":"","visits":["2026-01-13"]},{"id":"s384","chain":"Ross","addr":"9104 S Western Ave, Evergreen Park, IL 60805","lat":41.725746,"lng":-87.685078,"notes":"","visits":["2026-05-15"]},{"id":"s385","chain":"Ross","addr":"13200 S Cicero Ave, Crestwood, IL 60445","lat":41.651619,"lng":-87.7415,"notes":"","visits":["2026-03-06"]},{"id":"s386","chain":"Ross","addr":"480 River Oaks W, Calumet City, IL 60409","lat":41.599197,"lng":-87.5622,"notes":"","visits":["2026-02-18"]},{"id":"s387","chain":"Ross","addr":"16039 S Harlem Ave, Tinley Park, IL 60477","lat":41.598067,"lng":-87.792242,"notes":"","visits":["2026-03-10"]},{"id":"s388","chain":"Ross","addr":"17910 S Halsted St, Homewood, IL 60430","lat":41.564659,"lng":-87.638727,"notes":"","visits":["2026-02-19"]},{"id":"s389","chain":"Ross","addr":"120 Orland Park Pl, Orland Park, IL 60462","lat":41.611736,"lng":-87.850691,"notes":"","visits":["2026-03-10"]},{"id":"s390","chain":"Ross","addr":"7511 Lemont Rd, Darien, IL 60561","lat":41.749732,"lng":-88.009845,"notes":"","visits":["2026-02-12"]},{"id":"s391","chain":"Ross","addr":"1316 Butterfield Rd, Downers Grove, IL 60515","lat":41.83567,"lng":-88.016694,"notes":"","visits":["2026-02-06"]},{"id":"s392","chain":"Ross","addr":"202 Roosevelt Rd, Villa Park, IL 60181","lat":41.861816,"lng":-87.983851,"notes":"","visits":["2026-02-06"]},{"id":"s393","chain":"Ross","addr":"475 E Lincoln Hwy, New Lenox, IL 60451","lat":41.514286,"lng":-87.955963,"notes":"","visits":["2026-03-05"]},{"id":"s394","chain":"Ross","addr":"7290 W 191st St, Tinley Park, IL 60487","lat":41.54804,"lng":-87.794533,"notes":"","visits":["2026-02-19"]},{"id":"s395","chain":"Ross","addr":"4816 211th St, Matteson, IL 60443","lat":41.508207,"lng":-87.734243,"notes":"","visits":["2026-02-19"]},{"id":"s396","chain":"Ross","addr":"4120 S Pulaski Rd, Chicago, IL 60632","lat":41.818197,"lng":-87.725532,"notes":"","visits":[]},{"id":"s397","chain":"Ross","addr":"1555 IL-50, Bradley, IL 60915","lat":41.173236,"lng":-87.85405,"notes":"","visits":["2026-02-26"]},{"id":"s398","chain":"Ross","addr":"7927 Indianapolis Blvd Ste A, Hammond, IN 46324","lat":41.570721,"lng":-87.474292,"notes":"","visits":[]},{"id":"s399","chain":"Ross","addr":"111 US-41, Schererville, IN 46375","lat":41.521244,"lng":-87.467918,"notes":"","visits":[]},{"id":"s400","chain":"Ross","addr":"2550 E 79th Ave, Merrillville, IN 46410","lat":41.473104,"lng":-87.305088,"notes":"","visits":["2026-05-04"]},{"id":"s401","chain":"Ross","addr":"91 Silhavy Rd #121, Valparaiso, IN 46383","lat":41.467834,"lng":-87.024756,"notes":"","visits":[]},{"id":"s402","chain":"Ross","addr":"208 Dunes Plaza, Michigan City, IN 46360","lat":41.678425,"lng":-86.896812,"notes":"","visits":[]},{"id":"s403","chain":"Ross","addr":"1290 E Ireland Rd, South Bend, IN 46614","lat":41.625841,"lng":-86.231785,"notes":"","visits":[]},{"id":"s404","chain":"Ross","addr":"6502 Grape Rd, Mishawaka, IN 46545","lat":41.717267,"lng":-86.18684,"notes":"","visits":["2026-05-13"]},{"id":"s405","chain":"Ross","addr":"1500 Pilgrim Ln #130, Plymouth, IN 46563","lat":41.363789,"lng":-86.327632,"notes":"","visits":[]},{"id":"s406","chain":"Ross","addr":"1050 Mt Prospect Plaza, Mt Prospect, IL 60056","lat":42.068592,"lng":-87.91992,"notes":"","visits":[]},{"id":"s407","chain":"Ross","addr":"749 E Dundee Rd, Palatine, IL 60074","lat":42.137366,"lng":-88.025207,"notes":"","visits":["2025-12-12"]},{"id":"s408","chain":"Ross","addr":"9454 Skokie Blvd, Skokie, IL 60077","lat":42.052949,"lng":-87.74973,"notes":"","visits":["2025-12-17"]},{"id":"s409","chain":"Ross","addr":"6921 Dempster St, Morton Grove, IL 60053","lat":42.039252,"lng":-87.796363,"notes":"","visits":["2026-05-07"]},{"id":"s410","chain":"Ross","addr":"239 Golf Mill Centre, Niles, IL 60714","lat":42.049918,"lng":-87.836881,"notes":"","visits":[]},{"id":"s411","chain":"Ross","addr":"701 N Milwaukee Ave, Vernon Hills, IL 60061","lat":42.239781,"lng":-87.941413,"notes":"","visits":["2026-05-01"]},{"id":"s412","chain":"Ross","addr":"7564 N Western Ave, Chicago, IL 60645","lat":42.01888,"lng":-87.691679,"notes":"","visits":["2025-12-19"]},{"id":"s413","chain":"Ross","addr":"6901 W Grand Ave, Gurnee, IL 60031","lat":42.384624,"lng":-87.973778,"notes":"","visits":["2026-04-28"]},{"id":"s414","chain":"Ross","addr":"1301 N Lewis Ave, Waukegan, IL 60085","lat":42.378434,"lng":-87.854441,"notes":"","visits":["2026-05-01"]},{"id":"s415","chain":"Ross","addr":"1200 Winston Plaza, Melrose Park, IL 60160","lat":41.905638,"lng":-87.848548,"notes":"","visits":[]},{"id":"s416","chain":"Ross","addr":"53 W North Ave, Northlake, IL 60164","lat":41.904932,"lng":-87.907188,"notes":"","visits":["2026-05-11"]},{"id":"s417","chain":"Ross","addr":"8355 W Belmont Ave, River Grove, IL 60171","lat":41.935377,"lng":-87.834959,"notes":"","visits":["2026-01-09"]},{"id":"s418","chain":"Ross","addr":"400 Broadview Village Square, Broadview, IL 60155","lat":41.851639,"lng":-87.848683,"notes":"","visits":["2026-05-11"]},{"id":"s419","chain":"Ross","addr":"1237 E Golf Rd, Schaumburg, IL 60173","lat":42.048747,"lng":-88.049069,"notes":"","visits":["2026-02-07"]},{"id":"s420","chain":"Ross","addr":"901 Meacham Rd, Elk Grove Village, IL 60007","lat":42.000241,"lng":-88.044017,"notes":"","visits":["2026-04-08"]},{"id":"s421","chain":"Ross","addr":"7100 Mannheim Rd, Rosemont, IL 60018","lat":42.007995,"lng":-87.887115,"notes":"","visits":[]},{"id":"s422","chain":"Ross","addr":"581 Roosevelt Rd, Glen Ellyn, IL 60137","lat":41.858511,"lng":-88.063953,"notes":"","visits":["2026-04-03"]},{"id":"s423","chain":"Ross","addr":"350 W Army Trail Rd, Bloomingdale, IL 60108","lat":41.937108,"lng":-88.10947,"notes":"","visits":["2026-04-04"]},{"id":"s424","chain":"Ross","addr":"2427 W Schaumburg Rd, Schaumburg, IL 60194","lat":42.023002,"lng":-88.141395,"notes":"","visits":["2026-04-08"]}];
+
+const CHAIN_COLORS = { "Walmart":"#0071ce","Target":"#cc0000","Meijer":"#e4002b","Ollie's":"#003d7a","Marshalls/TJ/HG":"#7a3b2e","TJ Maxx":"#c8102e","Five Below":"#5b21b6","Ross":"#0a3a82" };
+const CHAIN_ABBR = { "Walmart":{text:"W",textColor:"#ffc220"},"Target":{text:"◎",textColor:"#fff"},"Meijer":{text:"m",textColor:"#fff"},"Ollie's":{text:"O!",textColor:"#ffcc00"},"Marshalls/TJ/HG":{text:"M",textColor:"#fff"},"TJ Maxx":{text:"TJ",textColor:"#fff"},"Five Below":{text:"5",textColor:"#fde047"},"Ross":{text:"R",textColor:"#fff"} };
+
+const STORE_KEY = "sourcingDashboardGM.stores";
+const LOGO_KEY = "sourcingDashboardGM.logos";
+const APIKEY_KEY = "sourcingDashboardGM.apiKey";
+const ROUTE_KEY = "sourcingDashboardGM.activeRoute";
+const HISTORY_KEY = "sourcingDashboardGM.routeHistory";
+const VERSION_KEY = "sourcingDashboardGM.seedVersion";
+const PINSIZE_KEY = "sourcingDashboardGM.pinSize";
+const SEED_VERSION = "2026-05-16-visits-v1";
+const MAX_VISITS = 5;
+const PIN_SIZES = { S: 28, M: 36, L: 48 };
+let pinSizePref = localStorage.getItem(PINSIZE_KEY) || "S";
+
+function migrateStores(arr){
+  for(const s of arr){
+    if(!Array.isArray(s.visits)){ s.visits = s.last ? [s.last] : []; }
+    delete s.last;
+    s.visits = s.visits.filter(Boolean).sort().reverse().slice(0, MAX_VISITS);
+    if(!s.notes) s.notes = "";
+  }
+  return arr;
+}
+function autoMergeSeedVisits(currentStores){
+  // Merge seed visits into current stores (used when seed version bumps)
+  const seedMap = new Map();
+  for(const seed of SEED_STORES){
+    if((seed.visits||[]).length) seedMap.set(seed.chain+"|"+seed.addr, seed.visits);
+  }
+  let merged = 0;
+  for(const s of currentStores){
+    const sv = seedMap.get(s.chain+"|"+s.addr);
+    if(sv && sv.length){
+      const before = (s.visits||[]).length;
+      s.visits = Array.from(new Set([...(s.visits||[]), ...sv])).sort().reverse().slice(0, MAX_VISITS);
+      if(s.visits.length > before) merged++;
+    }
+  }
+  return merged;
+}
+function loadStores(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){
+      const p = JSON.parse(raw);
+      if(Array.isArray(p) && p.length){
+        const arr = migrateStores(p);
+        // Auto-merge on version bump
+        if(localStorage.getItem(VERSION_KEY) !== SEED_VERSION){
+          const n = autoMergeSeedVisits(arr);
+          localStorage.setItem(VERSION_KEY, SEED_VERSION);
+          try { localStorage.setItem(STORE_KEY, JSON.stringify(arr)); } catch(e){}
+          if(n > 0) console.log(`Auto-merged seed visits into ${n} stores.`);
+        }
+        return arr;
+      }
+    }
+  } catch(e){}
+  localStorage.setItem(VERSION_KEY, SEED_VERSION);
+  return migrateStores(JSON.parse(JSON.stringify(SEED_STORES)));
+}
+function saveStores(){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(stores)); }catch(e){} }
+function loadLogos(){ try{ return JSON.parse(localStorage.getItem(LOGO_KEY))||{}; }catch(e){ return {}; } }
+function saveLogos(){ try{ localStorage.setItem(LOGO_KEY,JSON.stringify(logos)); }catch(e){} }
+function loadActiveRoute(){ try{ return JSON.parse(localStorage.getItem(ROUTE_KEY))||null; }catch(e){ return null; } }
+function saveActiveRoute(){ try{ activeRoute ? localStorage.setItem(ROUTE_KEY,JSON.stringify(activeRoute)) : localStorage.removeItem(ROUTE_KEY); }catch(e){} }
+function loadRouteHistory(){ try{ return JSON.parse(localStorage.getItem(HISTORY_KEY))||[]; }catch(e){ return []; } }
+function saveRouteHistory(){ try{ localStorage.setItem(HISTORY_KEY,JSON.stringify(routeHistory)); }catch(e){} }
+
+let stores = loadStores();
+let logos = loadLogos();
+let activeRoute = loadActiveRoute();
+let routeHistory = loadRouteHistory();
+let selectedId=null, chainsEnabled=new Set(Object.keys(chainBreakdown()));
+let recencyFilter="all", searchTerm="";
+let placeMode=false, tapToAddMode=false;
+let draftRoute = [];
+let map=null;
+const markerMap = new Map();
+let directionsRenderer = null;
+
+function chainBreakdown(){ const c={}; for(const s of stores) c[s.chain]=(c[s.chain]||0)+1; return c; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function daysSinceDate(d){ if(!d) return Infinity; return Math.floor((Date.now()-new Date(d+"T12:00:00").getTime())/86400000); }
+function lastVisit(s){ return (s.visits&&s.visits.length)?s.visits[0]:null; }
+function addVisit(s,d){ if(!s.visits) s.visits=[]; if(d && !s.visits.includes(d)) s.visits.push(d); s.visits = s.visits.filter(Boolean).sort().reverse().slice(0,MAX_VISITS); }
+function removeVisitAt(s,i){ if(s.visits) s.visits.splice(i,1); }
+function daysSince(s){ return daysSinceDate(lastVisit(s)); }
+function statusOf(s){ const d=daysSince(s); if(d<=60) return "green"; if(d<=90) return "yellow"; return "red"; }
+function statusLabel(s){ const d=daysSince(s); if(!isFinite(d)) return "Never visited"; if(d===0) return "Today"; if(d===1) return "Yesterday"; return d+" days ago"; }
+function statusColor(st){ return st==="green"?"var(--green)":st==="yellow"?"var(--yellow)":"var(--red)"; }
+function hav(a,b){ const R=3958.8,T=x=>x*Math.PI/180; const dLat=T(b.lat-a.lat),dLng=T(b.lng-a.lng); const la1=T(a.lat),la2=T(b.lat); const x=Math.sin(dLat/2)**2+Math.sin(dLng/2)**2*Math.cos(la1)*Math.cos(la2); return 2*R*Math.asin(Math.sqrt(x)); }
+function fmtDist(mi){ return mi<1?(mi*5280|0)+" ft":mi.toFixed(1)+" mi"; }
+function escapeHtml(s){ return String(s||"").replace(/[<>&"']/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c])); }
+function escapeXml(s){ return String(s).replace(/[<>&"']/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[c])); }
+function passesFilters(s){
+  if(!chainsEnabled.has(s.chain)) return false;
+  const st=statusOf(s);
+  if(recencyFilter==="red"&&st!=="red") return false;
+  if(recencyFilter==="green"&&st!=="green") return false;
+  if(recencyFilter==="stale"&&st==="green") return false;
+  if(searchTerm){ const q=searchTerm.toLowerCase(); if(!s.addr.toLowerCase().includes(q)&&!s.chain.toLowerCase().includes(q)) return false; }
+  return true;
+}
+
+// Setup / GMAPS load
+function getApiKey(){ return localStorage.getItem(APIKEY_KEY) || ""; }
+function setApiKey(k){ localStorage.setItem(APIKEY_KEY, k); }
+function init(){
+  const key = getApiKey();
+  if(!key){ showSetup(); return; }
+  loadGoogleMaps(key);
+}
+function showSetup(){
+  document.getElementById("setup-overlay").style.display = "flex";
+  document.getElementById("app").style.display = "none";
+  document.getElementById("setup-save").onclick = () => {
+    const k = document.getElementById("setup-key").value.trim();
+    if(!k || !k.startsWith("AIza")){ alert('Paste a Google Maps API key (starts with "AIza…").'); return; }
+    setApiKey(k); location.reload();
+  };
+  document.getElementById("setup-key").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("setup-save").click(); });
+}
+function loadGoogleMaps(key){
+  window.__gmInit = bootApp;
+  const s = document.createElement("script");
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&callback=__gmInit&v=weekly&loading=async`;
+  s.async = true;
+  s.onerror = () => { if(confirm("Failed to load Google Maps. Clear key and retry?")){ localStorage.removeItem(APIKEY_KEY); location.reload(); } };
+  window.gm_authFailure = () => { if(confirm("Google rejected this API key. Clear and re-enter?")){ localStorage.removeItem(APIKEY_KEY); location.reload(); } };
+  document.head.appendChild(s);
+}
+
+function bootApp(){
+  document.getElementById("setup-overlay").style.display = "none";
+  document.getElementById("app").style.display = "grid";
+  const styles = [{ featureType:"poi", stylers:[{ visibility:"off" }] },{ featureType:"poi.park", stylers:[{ visibility:"simplified" }] },{ featureType:"transit", stylers:[{ visibility:"simplified" }] }];
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 41.85, lng: -87.7 }, zoom: 9,
+    mapTypeControl: true, streetViewControl: true, fullscreenControl: false,
+    gestureHandling: "greedy", clickableIcons: false, styles
+  });
+  directionsRenderer = new google.maps.DirectionsRenderer({ map, suppressMarkers: true, preserveViewport: true,
+    polylineOptions: { strokeColor:"#2563eb", strokeWeight:5, strokeOpacity:0.8 } });
+  for(const s of stores) createMarker(s);
+  fitBoundsToVisible();
+  map.addListener("click", e => {
+    if(placeMode){
+      const lat = e.latLng.lat(), lng = e.latLng.lng();
+      exitPlaceMode();
+      openAddModal({ lat, lng });
+    }
+  });
+  wireUI();
+  renderAll();
+}
+
+// MARKERS
+function markerIconFor(s){
+  const st = statusOf(s);
+  const ringColor = st==="green"?"#16a34a":st==="yellow"?"#ca8a04":"#dc2626";
+  const chainColor = CHAIN_COLORS[s.chain] || "#666";
+  const abbr = CHAIN_ABBR[s.chain] || { text:s.chain[0]||"?", textColor:"#fff" };
+  const logoUrl = logos[s.chain];
+  const sel = (s.id===selectedId);
+  const inRoute = tapToAddMode ? draftRoute.indexOf(s.id) : (activeRoute ? activeRoute.stops.findIndex(x=>x.storeId===s.id) : -1);
+  const base = PIN_SIZES[pinSizePref] || PIN_SIZES.S;
+  const size = sel ? base + 8 : base;
+  const c = size/2;
+  const ringR = size * 0.42;
+  const ringW = size * 0.095;
+  const innerR = ringR - ringW/2 - size*0.012;
+  let inner;
+  if(logoUrl){
+    inner = `<clipPath id="cp${escapeXml(s.id)}"><circle cx="${c}" cy="${c}" r="${innerR}"/></clipPath><image href="${logoUrl}" x="${c-innerR}" y="${c-innerR}" width="${innerR*2}" height="${innerR*2}" clip-path="url(#cp${escapeXml(s.id)})" preserveAspectRatio="xMidYMid slice"/>`;
+  } else {
+    const fs = size * 0.46;
+    inner = `<circle cx="${c}" cy="${c}" r="${innerR}" fill="${chainColor}"/><text x="${c}" y="${c + fs*0.35}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="${abbr.textColor}" font-family="-apple-system,sans-serif">${escapeXml(abbr.text)}</text>`;
+  }
+  const halo = sel ? `<circle cx="${c}" cy="${c}" r="${size*0.5}" fill="#111827" opacity="0.18"/>` : "";
+  const shadow = `<defs><filter id="sh${escapeXml(s.id)}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="0.8" stdDeviation="1" flood-opacity="0.3"/></filter></defs>`;
+  // Route number badge
+  let routeBadge = "";
+  if(inRoute >= 0){
+    const br = size * 0.22;
+    const bx = size - br - 1, by = br + 1;
+    routeBadge = `<circle cx="${bx}" cy="${by}" r="${br}" fill="${tapToAddMode?'#2563eb':'#1d4ed8'}" stroke="white" stroke-width="2"/><text x="${bx}" y="${by+br*0.38}" text-anchor="middle" font-size="${br*1.1}" font-weight="800" fill="white" font-family="-apple-system,sans-serif">${inRoute+1}</text>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${shadow}${halo}<g filter="url(#sh${escapeXml(s.id)})"><circle cx="${c}" cy="${c}" r="${ringR}" fill="white" stroke="${ringColor}" stroke-width="${ringW}"/>${inner}</g>${routeBadge}</svg>`;
+  return { url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size), anchor: new google.maps.Point(c, c) };
+}
+function createMarker(s){
+  const m = new google.maps.Marker({ position: { lat:s.lat, lng:s.lng }, map: passesFilters(s) ? map : null, icon: markerIconFor(s), title: s.chain + " — " + s.addr, optimized: false });
+  m.addListener("click", () => {
+    if(tapToAddMode){
+      // Toggle in draft route
+      const idx = draftRoute.indexOf(s.id);
+      if(idx >= 0) draftRoute.splice(idx, 1);
+      else draftRoute.push(s.id);
+      updateTapBanner();
+      refreshAllRouteMarkers();
+      return;
+    }
+    selectStore(s.id, false);
+  });
+  markerMap.set(s.id, m);
+}
+function refreshMarker(s){
+  let m = markerMap.get(s.id);
+  if(!m){ createMarker(s); return; }
+  m.setIcon(markerIconFor(s));
+  m.setMap(passesFilters(s) ? map : null);
+}
+function refreshAllRouteMarkers(){
+  // Only refresh markers whose route position may have changed
+  const involvedIds = new Set([...(activeRoute?activeRoute.stops.map(x=>x.storeId):[]), ...draftRoute]);
+  for(const id of involvedIds){
+    const s = stores.find(x => x.id===id);
+    if(s) refreshMarker(s);
+  }
+  // Also force-refresh all visible markers because indices changed
+  for(const [id,m] of markerMap){
+    const s = stores.find(x => x.id===id);
+    if(s && passesFilters(s)) m.setIcon(markerIconFor(s));
+  }
+}
+function refreshAllMarkers(){
+  for(const [id,m] of markerMap){ if(!stores.find(s => s.id===id)){ m.setMap(null); markerMap.delete(id); } }
+  for(const s of stores){
+    if(!markerMap.has(s.id)) createMarker(s);
+    else refreshMarker(s);
+  }
+}
+function fitBoundsToVisible(){
+  if(!map) return;
+  const visible = stores.filter(passesFilters);
+  const list = visible.length ? visible : stores;
+  if(!list.length) return;
+  const b = new google.maps.LatLngBounds();
+  for(const s of list) b.extend({ lat:s.lat, lng:s.lng });
+  map.fitBounds(b, 40);
+}
+
+// Sidebar
+function renderChains(){
+  const cont = document.getElementById("chains");
+  const counts = chainBreakdown();
+  cont.innerHTML = Object.keys(counts).sort().map(c => {
+    const on = chainsEnabled.has(c);
+    return `<span class="chip ${on?"":"off"}" data-chain="${escapeHtml(c)}"><span class="dot" style="background:${CHAIN_COLORS[c]||"#888"}"></span>${escapeHtml(c)} <span style="color:var(--ink-3)">${counts[c]}</span></span>`;
+  }).join("");
+  for(const el of cont.querySelectorAll(".chip")){
+    el.addEventListener("click", () => {
+      const c = el.getAttribute("data-chain");
+      if(chainsEnabled.has(c)) chainsEnabled.delete(c); else chainsEnabled.add(c);
+      renderAll();
+    });
+  }
+}
+function renderStats(){
+  const visible = stores.filter(passesFilters);
+  let g=0,y=0,r=0;
+  for(const s of stores){ const st=statusOf(s); if(st==="green") g++; else if(st==="yellow") y++; else r++; }
+  document.getElementById("stats").innerHTML = `<span class="stat-pill"><b>${stores.length}</b> stores</span><span class="stat-pill green"><span class="dot"></span><b>${g}</b> recent</span><span class="stat-pill yellow"><span class="dot"></span><b>${y}</b> stale</span><span class="stat-pill red"><span class="dot"></span><b>${r}</b> red / never</span><span style="color:var(--ink-3)">·  showing ${visible.length}</span>`;
+}
+function renderList(){
+  const list = document.getElementById("list");
+  const visible = stores.filter(passesFilters);
+  visible.sort((a,b)=>{ const da=daysSince(a),db=daysSince(b); if(da!==db) return db-da; return a.chain.localeCompare(b.chain)||a.addr.localeCompare(b.addr); });
+  if(!visible.length){ list.innerHTML = `<div style="padding:16px; color:var(--ink-3); text-align:center;">No stores match current filters.</div>`; return; }
+  list.innerHTML = visible.slice(0,250).map(s => {
+    const st=statusOf(s);
+    return `<div class="row ${s.id===selectedId?"selected":""}" data-id="${s.id}"><span class="badge" style="background:${statusColor(st)}"></span><div class="body"><div class="chain">${escapeHtml(s.chain)} <span class="badge-status ${st}" style="margin-left:4px">${st}</span></div><div class="addr">${escapeHtml(s.addr)}</div><div class="meta">${escapeHtml(statusLabel(s))}</div></div></div>`;
+  }).join("") + (visible.length>250?`<div style="padding:10px; text-align:center; color:var(--ink-3); font-size:12px;">+ ${visible.length-250} more — narrow your filters to see them</div>`:"");
+  for(const r of list.querySelectorAll(".row")){
+    r.addEventListener("click", () => selectStore(r.getAttribute("data-id"), true));
+  }
+}
+
+function selectStore(id, centerOnMap){
+  const prev = selectedId;
+  selectedId = id;
+  document.getElementById("app").classList.toggle("has-details", !!id);
+  renderDetails(); renderList();
+  if(prev){ const s = stores.find(x => x.id===prev); if(s) refreshMarker(s); }
+  if(id){ const s = stores.find(x => x.id===id); if(s){ refreshMarker(s); if(centerOnMap && map){ map.panTo({ lat:s.lat, lng:s.lng }); if(map.getZoom() < 12) map.setZoom(13); } } }
+  if(window.matchMedia("(max-width: 800px)").matches){
+    document.getElementById("details").classList.add("open");
+    document.getElementById("side").classList.remove("open");
+  }
+}
+
+function renderDetails(){
+  const el = document.getElementById("details");
+  if(!selectedId){ el.innerHTML=""; return; }
+  const s = stores.find(x => x.id===selectedId); if(!s){ el.innerHTML=""; return; }
+  const st = statusOf(s);
+  const dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=driving`;
+  const visits = s.visits || [];
+  const historyHtml = visits.length ? visits.map((d,i)=>{
+    const days = daysSinceDate(d);
+    const lbl = days===0?"today":days===1?"yesterday":days+" days ago";
+    return `<li><span class="vd">${escapeHtml(d)}</span><span class="va">${lbl}</span><button class="del-visit" data-i="${i}" title="Remove">×</button></li>`;
+  }).join("") : `<li class="vempty">No visits recorded.</li>`;
+
+  el.innerHTML = `
+    <div class="head">
+      <button class="btn subtle close" id="d-close">✕</button>
+      <h2>${escapeHtml(s.chain)}</h2>
+      <div class="sub">${escapeHtml(s.addr)}</div>
+      <div style="margin-top:8px"><span class="badge-status ${st}">${st.toUpperCase()}</span> <span style="color:var(--ink-2); font-size:12.5px">${escapeHtml(statusLabel(s))}</span></div>
+    </div>
+    <div class="section">
+      <div class="btns" style="margin-bottom:10px;">
+        <a class="btn primary" target="_blank" rel="noopener" href="${dirUrl}">▸ Drive here</a>
+        <button class="btn" id="d-streetview">Street View</button>
+      </div>
+      <div class="btns">
+        <button class="btn" id="d-visited">Mark visited today</button>
+        <button class="btn" id="d-pickdate">Add past visit…</button>
+        <button class="btn" id="d-add-route">+ Add to today's route</button>
+      </div>
+      <div class="input-row" id="d-pickdate-row" style="display:none; margin-top:8px;">
+        <input type="date" id="d-date" max="${todayStr()}" />
+        <button class="btn small" id="d-savedate">Add</button>
+      </div>
+    </div>
+    <div class="section">
+      <label style="display:block; font-size:12px; color:var(--ink-2); margin-bottom:6px;">Visit history (last ${MAX_VISITS})</label>
+      <ul class="visit-list">${historyHtml}</ul>
+    </div>
+    <div class="section">
+      <label style="display:block; font-size:12px; color:var(--ink-2); margin-bottom:4px;">Notes</label>
+      <textarea id="d-notes" placeholder="What was hot? Any clearance sections to revisit?">${escapeHtml(s.notes||"")}</textarea>
+      <div style="text-align:right; margin-top:6px;"><button class="btn small" id="d-savenotes">Save notes</button></div>
+    </div>
+    <div class="section">
+      <dl class="kv"><dt>Coordinates</dt><dd>${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</dd></dl>
+      <div class="btns" style="margin-top:10px;">
+        <button class="btn" id="d-route">Plan route from here</button>
+        <button class="btn" id="d-delete" style="color:var(--red); margin-left:auto;">Delete store</button>
+      </div>
+    </div>`;
+  document.getElementById("d-close").onclick = () => selectStore(null);
+  document.getElementById("d-visited").onclick = () => { addVisit(s, todayStr()); saveStores(); renderAll(); };
+  document.getElementById("d-pickdate").onclick = () => { document.getElementById("d-pickdate-row").style.display="flex"; document.getElementById("d-date").value = lastVisit(s) || todayStr(); };
+  document.getElementById("d-savedate").onclick = () => { const v=document.getElementById("d-date").value; if(v){ addVisit(s,v); saveStores(); renderAll(); } };
+  document.getElementById("d-savenotes").onclick = () => { s.notes = document.getElementById("d-notes").value; saveStores(); };
+  document.getElementById("d-route").onclick = () => openRouteModal(s.id);
+  document.getElementById("d-add-route").onclick = () => {
+    if(!activeRoute){
+      activeRoute = { stops: [{ storeId: s.id, status: "planned" }], startedAt: new Date().toISOString() };
+    } else if(!activeRoute.stops.find(x => x.storeId === s.id)){
+      activeRoute.stops.push({ storeId: s.id, status: "planned" });
+    } else { return; }
+    saveActiveRoute(); renderAll();
+  };
+  document.getElementById("d-delete").onclick = () => { if(confirm("Delete this store?")){ const m=markerMap.get(s.id); if(m){ m.setMap(null); markerMap.delete(s.id); } stores = stores.filter(x => x.id!==s.id); selectedId=null; saveStores(); renderAll(); } };
+  document.getElementById("d-streetview").onclick = () => { if(!map) return; const sv = map.getStreetView(); sv.setPosition({ lat:s.lat, lng:s.lng }); sv.setVisible(true); };
+  for(const b of el.querySelectorAll(".del-visit")){
+    b.onclick = e => { removeVisitAt(s, +e.currentTarget.getAttribute("data-i")); saveStores(); renderAll(); };
+  }
+}
+
+// ROUTE PLANNER
+function openRouteModal(startId){
+  if(activeRoute && activeRoute.stops.length){
+    draftRoute = activeRoute.stops.map(x => x.storeId).filter(id => stores.find(s => s.id===id));
+  } else {
+    draftRoute = [];
+  }
+  if(startId && !draftRoute.includes(startId)) draftRoute.unshift(startId);
+
+  const chainsOpts = Object.keys(chainBreakdown()).sort();
+  showModal(`
+    <div class="m-head"><h3>Plan a route</h3><button class="btn subtle close" id="rm-close">✕</button></div>
+    <div class="m-body">
+
+      <button class="btn primary" id="rm-tap-mode" style="padding:10px;">📌 Build by tapping pins on the map →</button>
+
+      <div class="route-mode" id="rm-mode">
+        <button class="pill active" data-mode="manual">Manual search</button>
+        <button class="pill" data-mode="auto">Auto-fill</button>
+      </div>
+
+      <div id="rm-auto-form" style="display:none; padding:10px; background:#f9fafb; border-radius:8px;">
+        <div class="grid-2">
+          <div><label>Start from</label><select id="rm-start">${stores.map(s=>`<option value="${s.id}" ${s.id===startId?"selected":""}>${escapeHtml(s.chain)} — ${escapeHtml(s.addr)}</option>`).join("")}</select></div>
+          <div><label>Max stops</label><select id="rm-max"><option>3</option><option>5</option><option selected>8</option><option>12</option><option>20</option></select></div>
+        </div>
+        <div class="grid-2" style="margin-top:8px;">
+          <div><label>Within radius (mi)</label><select id="rm-radius"><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="999">no limit</option></select></div>
+          <div><label>Priority</label><select id="rm-prio"><option value="red" selected>Red only</option><option value="stale">Yellow + Red</option><option value="any">Any store</option></select></div>
+        </div>
+        <div style="margin-top:8px;"><label>Chains to include</label>
+          <div class="chains" id="rm-chains">${chainsOpts.map(c=>`<span class="chip" data-c="${escapeHtml(c)}"><span class="dot" style="background:${CHAIN_COLORS[c]||"#888"}"></span>${escapeHtml(c)}</span>`).join("")}</div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn primary" id="rm-gen-replace">Generate (replace route)</button>
+          <button class="btn" id="rm-gen-append">Append nearest</button>
+        </div>
+      </div>
+
+      <div id="rm-route-summary" style="font-size:13px; color:var(--ink-2);"></div>
+      <div id="rm-route-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+
+      <div class="add-stop-search">
+        <input type="text" id="rm-add" placeholder="+ Add a stop — type chain or address…" />
+        <div class="add-stop-results" id="rm-add-results" style="display:none;"></div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+        <button class="btn" id="rm-preview" style="flex:1; min-width:140px;">Preview on map</button>
+        <button class="btn" id="rm-clearpreview" title="Clear route line">Clear preview</button>
+        <a class="btn" id="rm-gmaps" target="_blank" rel="noopener" href="#" style="flex:1; min-width:140px; text-align:center;">▸ Open in Google Maps</a>
+        <button class="btn primary" id="rm-save" style="flex:1; min-width:140px;">Save as today's route</button>
+      </div>
+    </div>
+  `);
+
+  const selChains = new Set(chainsOpts);
+  for(const ch of document.querySelectorAll("#rm-chains .chip")){
+    ch.addEventListener("click", () => { const c=ch.getAttribute("data-c"); if(selChains.has(c)){ selChains.delete(c); ch.classList.add("off"); } else { selChains.add(c); ch.classList.remove("off"); } });
+  }
+  document.getElementById("rm-close").onclick = closeModal;
+  for(const p of document.querySelectorAll("#rm-mode .pill")){
+    p.onclick = () => {
+      for(const x of document.querySelectorAll("#rm-mode .pill")) x.classList.remove("active");
+      p.classList.add("active");
+      document.getElementById("rm-auto-form").style.display = p.getAttribute("data-mode")==="auto" ? "block" : "none";
+    };
+  }
+  document.getElementById("rm-tap-mode").onclick = () => { closeModal(); enterTapAddMode(); };
+
+  function autoFill(replace){
+    const start = stores.find(x=>x.id===document.getElementById("rm-start").value);
+    if(!start){ alert("Pick a starting store."); return; }
+    const maxStops = +document.getElementById("rm-max").value;
+    const radius = +document.getElementById("rm-radius").value;
+    const prio = document.getElementById("rm-prio").value;
+    const used = new Set(replace ? [start.id] : draftRoute);
+    let pool = stores.filter(s => !used.has(s.id) && selChains.has(s.chain));
+    if(prio==="red") pool = pool.filter(s => statusOf(s)==="red");
+    if(prio==="stale") pool = pool.filter(s => statusOf(s)!=="green");
+    pool = pool.filter(s => hav(start,s) <= radius);
+    const newStops = [];
+    let cur = replace ? start : (draftRoute.length ? stores.find(x=>x.id===draftRoute[draftRoute.length-1]) : start);
+    while(newStops.length < maxStops && pool.length){
+      pool.sort((a,b)=>hav(cur,a)-hav(cur,b));
+      const next = pool.shift();
+      newStops.push(next.id);
+      cur = next;
+    }
+    if(replace) draftRoute = [start.id, ...newStops];
+    else draftRoute.push(...newStops);
+    if(!newStops.length) alert("No stops match those filters.");
+    renderDraftList();
+  }
+  document.getElementById("rm-gen-replace").onclick = () => autoFill(true);
+  document.getElementById("rm-gen-append").onclick = () => autoFill(false);
+
+  const addInput = document.getElementById("rm-add");
+  const addResults = document.getElementById("rm-add-results");
+  addInput.addEventListener("input", () => {
+    const q = addInput.value.trim().toLowerCase();
+    if(!q){ addResults.style.display = "none"; return; }
+    const matches = stores.filter(s => !draftRoute.includes(s.id) && (s.addr.toLowerCase().includes(q) || s.chain.toLowerCase().includes(q))).slice(0, 12);
+    if(!matches.length){ addResults.innerHTML = `<div class="opt" style="color:var(--ink-3);">No matches</div>`; addResults.style.display = "block"; return; }
+    addResults.innerHTML = matches.map(s => { const st = statusOf(s); return `<div class="opt" data-id="${s.id}"><span class="dot" style="background:${statusColor(st)}"></span><div style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><b>${escapeHtml(s.chain)}</b> · ${escapeHtml(s.addr)}</div><span class="meta">${escapeHtml(statusLabel(s))}</span></div>`; }).join("");
+    addResults.style.display = "block";
+    for(const el of addResults.querySelectorAll(".opt[data-id]")){
+      el.onclick = () => { draftRoute.push(el.getAttribute("data-id")); addInput.value = ""; addResults.style.display = "none"; renderDraftList(); addInput.focus(); };
+    }
+  });
+  addInput.addEventListener("blur", () => setTimeout(() => { addResults.style.display = "none"; }, 200));
+
+  function renderDraftList(){
+    const cont = document.getElementById("rm-route-list");
+    const summary = document.getElementById("rm-route-summary");
+    if(!draftRoute.length){
+      cont.innerHTML = `<div style="padding:14px; background:#f9fafb; border-radius:6px; color:var(--ink-2); text-align:center; font-size:13px;">No stops yet. Tap pins on the map (button above), search to add manually, or switch to Auto-fill.</div>`;
+      summary.textContent = ""; updateExportLink([]); return;
+    }
+    let total = 0;
+    cont.innerHTML = draftRoute.map((id, i) => {
+      const s = stores.find(x => x.id===id);
+      if(!s) return "";
+      const leg = i===0 ? 0 : hav(stores.find(x => x.id===draftRoute[i-1]), s);
+      total += leg;
+      const st = statusOf(s);
+      return `<div class="route-stop" data-id="${s.id}">
+        <div class="num">${i+1}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:500;">${escapeHtml(s.chain)} <span class="badge-status ${st}" style="margin-left:4px">${st}</span></div>
+          <div style="color:var(--ink-2); font-size:12.5px;">${escapeHtml(s.addr)}</div>
+          <div style="color:var(--ink-3); font-size:11.5px; margin-top:2px;">${i===0?"start":"+"+fmtDist(leg)+" (cum "+fmtDist(total)+")"} · ${escapeHtml(statusLabel(s))}</div>
+        </div>
+        <div class="stop-actions">
+          <button class="btn subtle small" data-act="up" title="Move up" ${i===0?"disabled style='opacity:.3'":""}>↑</button>
+          <button class="btn subtle small" data-act="down" title="Move down" ${i===draftRoute.length-1?"disabled style='opacity:.3'":""}>↓</button>
+          <button class="btn subtle small" data-act="del" title="Remove" style="color:var(--red)">✕</button>
+        </div>
+      </div>`;
+    }).join("");
+    summary.innerHTML = `<b>${draftRoute.length} stop${draftRoute.length>1?"s":""}</b> · total ${fmtDist(total)}`;
+    for(const stop of cont.querySelectorAll(".route-stop")){
+      const id = stop.getAttribute("data-id");
+      stop.querySelector("[data-act='up']").onclick = () => { const i = draftRoute.indexOf(id); if(i > 0){ [draftRoute[i-1], draftRoute[i]] = [draftRoute[i], draftRoute[i-1]]; renderDraftList(); } };
+      stop.querySelector("[data-act='down']").onclick = () => { const i = draftRoute.indexOf(id); if(i < draftRoute.length-1){ [draftRoute[i+1], draftRoute[i]] = [draftRoute[i], draftRoute[i+1]]; renderDraftList(); } };
+      stop.querySelector("[data-act='del']").onclick = () => { draftRoute = draftRoute.filter(x => x !== id); renderDraftList(); };
+    }
+    updateExportLink(draftRoute);
+  }
+  function updateExportLink(ids){
+    const a = document.getElementById("rm-gmaps");
+    if(ids.length < 2){ a.removeAttribute("href"); a.style.opacity = ".5"; a.style.pointerEvents = "none"; return; }
+    const pts = ids.map(id => { const s = stores.find(x => x.id===id); return s.lat+","+s.lng; });
+    a.href = `https://www.google.com/maps/dir/${pts.join("/")}`;
+    a.style.opacity = "1"; a.style.pointerEvents = "auto";
+  }
+
+  document.getElementById("rm-preview").onclick = () => {
+    if(draftRoute.length < 2){ alert("Add at least two stops to preview."); return; }
+    previewRoute(draftRoute.map(id => stores.find(x => x.id===id)));
+  };
+  document.getElementById("rm-clearpreview").onclick = clearRoutePreview;
+  document.getElementById("rm-save").onclick = () => {
+    if(!draftRoute.length){ alert("Add at least one stop before saving."); return; }
+    activeRoute = { stops: draftRoute.map(id => ({ storeId: id, status: "planned" })), startedAt: new Date().toISOString() };
+    saveActiveRoute();
+    renderTripPanel();
+    if(draftRoute.length >= 2) previewRoute(draftRoute.map(id => stores.find(x => x.id===id)));
+    closeModal();
+  };
+  renderDraftList();
+}
+
+function previewRoute(stops){
+  if(!directionsRenderer || !map) return;
+  if(stops.length < 2){ directionsRenderer.set("directions", null); return; }
+  const ds = new google.maps.DirectionsService();
+  const origin = stops[0], dest = stops[stops.length-1];
+  const waypoints = stops.slice(1, -1).map(s => ({ location: { lat:s.lat, lng:s.lng }, stopover:true }));
+  ds.route({ origin: { lat:origin.lat, lng:origin.lng }, destination: { lat:dest.lat, lng:dest.lng }, waypoints, travelMode: google.maps.TravelMode.DRIVING }, (result, status) => {
+    if(status === "OK"){ directionsRenderer.setDirections(result); const b = result.routes[0].bounds; if(b) map.fitBounds(b, 60); }
+    else { alert("Directions request failed: " + status + ". Make sure the Directions API is enabled in Google Cloud."); }
+  });
+}
+function clearRoutePreview(){ if(directionsRenderer) directionsRenderer.set("directions", null); }
+
+// TAP-TO-ADD MODE
+function enterTapAddMode(){
+  tapToAddMode = true;
+  document.getElementById("map").classList.add("tapping");
+  updateTapBanner();
+  refreshAllRouteMarkers();
+}
+function exitTapAddMode(persist){
+  tapToAddMode = false;
+  document.getElementById("map").classList.remove("tapping");
+  const el = document.getElementById("tap-banner");
+  if(el) el.remove();
+  if(!persist) draftRoute = [];
+  refreshAllRouteMarkers();
+}
+function updateTapBanner(){
+  let el = document.getElementById("tap-banner");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "tap-banner"; el.className = "tap-banner";
+    document.querySelector(".map-wrap").appendChild(el);
+  }
+  const pills = draftRoute.map((id,i) => { const s = stores.find(x => x.id===id); return s ? `<span class="tap-pill"><b>${i+1}.</b> ${escapeHtml(s.chain)}</span>` : ""; }).join("");
+  el.innerHTML = `
+    <div class="tap-head">
+      <b>Tap pins to build route — ${draftRoute.length} stop${draftRoute.length!==1?"s":""}</b>
+      <button class="btn primary" id="tap-save">Save</button>
+      <button class="btn" id="tap-edit">Edit list</button>
+      <button class="btn subtle" id="tap-cancel">✕</button>
+    </div>
+    <div class="tap-list">${pills || `<span style="font-size:11.5px; opacity:.85;">Tap any pin to add. Tap again to remove. Order = tap order.</span>`}</div>
+  `;
+  document.getElementById("tap-save").onclick = () => {
+    if(!draftRoute.length){ alert("Tap at least one pin first."); return; }
+    activeRoute = { stops: draftRoute.map(id => ({ storeId: id, status: "planned" })), startedAt: new Date().toISOString() };
+    saveActiveRoute();
+    if(draftRoute.length >= 2) previewRoute(draftRoute.map(id => stores.find(x => x.id===id)));
+    exitTapAddMode(true);
+    renderAll();
+  };
+  document.getElementById("tap-edit").onclick = () => { exitTapAddMode(true); openRouteModal(); };
+  document.getElementById("tap-cancel").onclick = () => exitTapAddMode(false);
+}
+
+// TODAY'S ROUTE SIDEBAR
+function renderTripPanel(){
+  const el = document.getElementById("trip-panel");
+  if(!activeRoute || !activeRoute.stops.length){ el.className = "trip-panel empty"; el.innerHTML = ""; return; }
+  el.className = "trip-panel";
+  const visited = activeRoute.stops.filter(x => x.status==="visited").length;
+  const skipped = activeRoute.stops.filter(x => x.status==="skipped").length;
+  const total = activeRoute.stops.length;
+  const stopsHtml = activeRoute.stops.map((st, i) => {
+    const s = stores.find(x => x.id===st.storeId); if(!s) return "";
+    const tnClass = st.status==="visited" ? "visited" : st.status==="skipped" ? "skipped" : "";
+    const visitBtn = st.status==="visited" ? "on-visit" : "";
+    const skipBtn  = st.status==="skipped" ? "on-skip" : "";
+    return `<div class="trip-stop ${tnClass}" data-i="${i}"><div class="tn ${tnClass}">${i+1}</div><div class="tb"><div class="tc">${escapeHtml(s.chain)}</div><div class="ta">${escapeHtml(s.addr)}</div></div><div class="ts-btns"><button class="${visitBtn}" data-act="visit">✓</button><button class="${skipBtn}" data-act="skip">⊘</button></div></div>`;
+  }).join("");
+  const pts = activeRoute.stops.map(x => { const s = stores.find(z => z.id===x.storeId); return s.lat+","+s.lng; });
+  const gmapsUrl = pts.length >= 2 ? `https://www.google.com/maps/dir/${pts.join("/")}` : "";
+  el.innerHTML = `
+    <div class="trip-head"><div class="title">Today's Route</div><div class="meta">${visited}/${total} done${skipped?` · ${skipped} skipped`:""}</div></div>
+    ${stopsHtml}
+    <div class="trip-foot">
+      ${gmapsUrl ? `<a class="btn" target="_blank" rel="noopener" href="${gmapsUrl}">▸ Drive route</a>` : ""}
+      <button class="btn" id="trip-arbi">Send to ArbiTrack</button>
+      <button class="btn" id="trip-edit">Edit</button>
+      <button class="btn primary" id="trip-finish">Finish trip</button>
+    </div>`;
+  for(const row of el.querySelectorAll(".trip-stop")){
+    const i = +row.getAttribute("data-i");
+    row.querySelector("[data-act='visit']").onclick = () => setStopStatus(i, "visit");
+    row.querySelector("[data-act='skip']").onclick  = () => setStopStatus(i, "skip");
+    row.querySelector(".tb").onclick = () => { const s = stores.find(x => x.id===activeRoute.stops[i].storeId); if(s) selectStore(s.id, true); };
+  }
+  document.getElementById("trip-edit").onclick = () => openRouteModal();
+  document.getElementById("trip-finish").onclick = finishTrip;
+  document.getElementById("trip-arbi").onclick = openArbitrackModal;
+}
+
+// Send today's route to the ArbiTrack mobile app
+function openArbitrackModal(){
+  if(!activeRoute || !activeRoute.stops.length){ alert("No active route to send."); return; }
+  const payload = {
+    type: "arbitrack.route.v1",
+    createdAt: activeRoute.startedAt || new Date().toISOString(),
+    source: "sourcing-dashboard",
+    stops: activeRoute.stops.map(x => {
+      const s = stores.find(z => z.id === x.storeId);
+      return s ? { id: s.id, chain: s.chain, addr: s.addr, lat: s.lat, lng: s.lng } : null;
+    }).filter(Boolean)
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const jsonMin = JSON.stringify(payload);
+  // base64 url-safe encode for deep link
+  const b64 = btoa(unescape(encodeURIComponent(jsonMin)));
+  const deepLink = `arbitrack://import?data=${encodeURIComponent(b64)}`;
+  showModal(`
+    <div class="m-head"><h3>Send to ArbiTrack</h3><button class="btn subtle close" id="ar-close">✕</button></div>
+    <div class="m-body">
+      <div style="color:var(--ink-2); font-size:13px;">Two ways to get this route onto your phone:</div>
+
+      <div>
+        <label><b>Option A — Tap a link on your phone (easiest)</b></label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" readonly id="ar-link" value="${deepLink}" style="font-family:monospace; font-size:11px;"/>
+          <button class="btn" id="ar-copy-link">Copy</button>
+        </div>
+        <div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">Text or email this link to yourself, tap it on your phone — ArbiTrack opens with the route loaded.</div>
+      </div>
+
+      <div>
+        <label><b>Option B — Paste JSON in ArbiTrack</b></label>
+        <textarea id="ar-json" readonly style="height:140px;">${escapeHtml(json)}</textarea>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <button class="btn primary" id="ar-copy-json">Copy JSON</button>
+          <a class="btn" id="ar-mail" href="#">Email to myself</a>
+        </div>
+        <div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">In ArbiTrack: open the <b>Route</b> tab → tap <b>Import route</b> → paste.</div>
+      </div>
+    </div>
+  `);
+  document.getElementById("ar-close").onclick = closeModal;
+  document.getElementById("ar-copy-link").onclick = () => {
+    navigator.clipboard.writeText(deepLink).then(() => alert("Link copied!"));
+  };
+  document.getElementById("ar-copy-json").onclick = () => {
+    navigator.clipboard.writeText(json).then(() => alert("JSON copied!"));
+  };
+  const mailUrl = `mailto:?subject=${encodeURIComponent("Today's sourcing route")}&body=${encodeURIComponent("Open this link on your phone:\n\n" + deepLink + "\n\nOr paste this JSON in ArbiTrack:\n\n" + json)}`;
+  document.getElementById("ar-mail").href = mailUrl;
+}
+function setStopStatus(i, act){
+  const cur = activeRoute.stops[i].status;
+  if(act==="visit") activeRoute.stops[i].status = cur==="visited" ? "planned" : "visited";
+  if(act==="skip")  activeRoute.stops[i].status = cur==="skipped" ? "planned" : "skipped";
+  saveActiveRoute(); renderTripPanel();
+}
+function finishTrip(){
+  if(!activeRoute) return;
+  const today = todayStr();
+  let committed = 0;
+  for(const st of activeRoute.stops){
+    if(st.status === "visited"){
+      const s = stores.find(x => x.id===st.storeId);
+      if(s){ addVisit(s, today); committed++; }
+    }
+  }
+  routeHistory.unshift({ date: today, startedAt: activeRoute.startedAt, finishedAt: new Date().toISOString(), total: activeRoute.stops.length, visited: committed, skipped: activeRoute.stops.filter(x => x.status==="skipped").length, stops: activeRoute.stops.map(x => ({ storeId: x.storeId, status: x.status })) });
+  routeHistory = routeHistory.slice(0, 50);
+  saveRouteHistory();
+  activeRoute = null; saveActiveRoute();
+  saveStores(); clearRoutePreview(); renderTripPanel(); renderAll();
+  alert(`Trip finished — ${committed} visits logged.`);
+}
+
+// ADD STORE
+function openAddModal(prefill){
+  prefill = prefill || {};
+  const chainList = Object.keys(chainBreakdown()).sort();
+  showModal(`
+    <div class="m-head"><h3>Add a store</h3><button class="btn subtle close" id="a-close">✕</button></div>
+    <div class="m-body">
+      <div class="grid-2">
+        <div><label>Chain</label><input type="text" id="a-chain" list="a-chains" placeholder="e.g. Target"/><datalist id="a-chains">${chainList.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}</datalist></div>
+        <div><label>Last visit (optional, YYYY-MM-DD)</label><input type="text" id="a-last" placeholder="${todayStr()}"/></div>
+      </div>
+      <div><label>Address</label><input type="text" id="a-addr" placeholder="123 Main St, City, IL 60000"/></div>
+      <div class="grid-2">
+        <div><label>Latitude</label><input type="text" id="a-lat" value="${prefill.lat ? prefill.lat.toFixed(6) : ""}"/></div>
+        <div><label>Longitude</label><input type="text" id="a-lng" value="${prefill.lng ? prefill.lng.toFixed(6) : ""}"/></div>
+      </div>
+      <div style="color:var(--ink-3); font-size:12px;">${prefill.lat ? "Coordinates pre-filled from where you clicked." : "Tip: right-click any spot on Google Maps to copy lat,lng. Or use 📍 Drop pin."}</div>
+      <div style="display:flex; gap:8px;"><button class="btn primary" id="a-save">Add store</button><button class="btn" id="a-cancel">Cancel</button></div>
+    </div>`);
+  document.getElementById("a-close").onclick = closeModal;
+  document.getElementById("a-cancel").onclick = closeModal;
+  document.getElementById("a-save").onclick = () => {
+    const chain = document.getElementById("a-chain").value.trim() || "Unknown";
+    const addr = document.getElementById("a-addr").value.trim();
+    const lat = parseFloat(document.getElementById("a-lat").value);
+    const lng = parseFloat(document.getElementById("a-lng").value);
+    const last = document.getElementById("a-last").value.trim() || null;
+    if(!addr || !isFinite(lat) || !isFinite(lng)){ alert("Need address + valid lat/lng"); return; }
+    const s = { id:"s"+Date.now(), chain, addr, lat, lng, visits: last?[last]:[], notes:"" };
+    stores.push(s);
+    if(!chainsEnabled.has(chain)) chainsEnabled.add(chain);
+    saveStores(); if(map) createMarker(s); renderAll();
+    closeModal();
+  };
+}
+
+// IMPORT / EXPORT
+function openIOModal(){
+  showModal(`
+    <div class="m-head"><h3>Import / Export</h3><button class="btn subtle close" id="io-close">✕</button></div>
+    <div class="m-body">
+      <div><label>Import KML from Google My Maps</label><input type="file" id="io-kml" accept=".kml"/><div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">In My Maps: ⋮ → Export to KML/KMZ → choose KML.</div></div>
+      <div><label>Or paste CSV (chain, address, lat, lng, visits[;-separated])</label><textarea id="io-csv" placeholder="Walmart, 3320 S Cicero Ave, 41.83, -87.75, 2026-01-22;2025-11-04"></textarea></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn primary" id="io-import">Import (merge)</button>
+        <button class="btn" id="io-export">Export CSV</button>
+        <button class="btn" id="io-replace" style="margin-left:auto; color:var(--red)">Re-merge with seed</button>
+      </div>
+      <div id="io-msg" style="color:var(--ink-2); font-size:12.5px;"></div>
+    </div>`);
+  document.getElementById("io-close").onclick = closeModal;
+  document.getElementById("io-export").onclick = () => {
+    const lines = ["chain,address,lat,lng,visits,notes"];
+    for(const s of stores){
+      const a = `"${(s.addr||"").replace(/"/g,'""')}"`;
+      const n = `"${(s.notes||"").replace(/"/g,'""')}"`;
+      const vs = `"${(s.visits||[]).join(";")}"`;
+      lines.push([s.chain,a,s.lat,s.lng,vs,n].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type:"text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="sourcing_stores.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("io-import").onclick = async () => {
+    const file = document.getElementById("io-kml").files[0];
+    const csv = document.getElementById("io-csv").value.trim();
+    const msg = document.getElementById("io-msg");
+    let imported = 0;
+    if(file){
+      try {
+        if(file.name.toLowerCase().endsWith(".kmz")){ msg.textContent="KMZ unzipping not supported — please unzip and upload .kml."; return; }
+        imported += importKML(await file.text());
+      } catch(e){ msg.textContent="Failed to read file: "+e.message; return; }
+    }
+    if(csv) imported += importCSV(csv);
+    saveStores(); refreshAllMarkers(); renderAll();
+    msg.textContent = `Imported ${imported} stores. Total now: ${stores.length}.`;
+  };
+  document.getElementById("io-replace").onclick = () => {
+    if(confirm("Reload the original store list and merge visit history?\n\nYour current visits will be combined with the latest seed data (keeps most recent 5 per store).")){
+      const vmap = new Map();
+      for(const s of stores){ if((s.visits||[]).length || s.notes) vmap.set(s.chain+"|"+s.addr, { visits:s.visits||[], notes:s.notes||"" }); }
+      stores = migrateStores(JSON.parse(JSON.stringify(SEED_STORES)));
+      for(const s of stores){
+        const v = vmap.get(s.chain+"|"+s.addr);
+        if(v){
+          s.visits = Array.from(new Set([...(s.visits||[]), ...v.visits])).sort().reverse().slice(0, MAX_VISITS);
+          if(v.notes && !s.notes) s.notes = v.notes;
+        }
+      }
+      saveStores(); refreshAllMarkers(); renderAll(); closeModal();
+    }
+  };
+}
+function importKML(text){
+  const doc = new DOMParser().parseFromString(text, "text/xml");
+  let count = 0;
+  const folders = doc.getElementsByTagName("Folder");
+  function addPM(pms, layer){
+    for(const pm of pms){
+      const name = pm.getElementsByTagName("name")[0]?.textContent?.trim() || "";
+      const coords = pm.getElementsByTagName("coordinates")[0]?.textContent?.trim() || "";
+      if(!coords) continue;
+      const parts = coords.split(",");
+      const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+      if(!isFinite(lat) || !isFinite(lng)) continue;
+      const chain = layer || "Unknown";
+      const dup = stores.find(x => x.chain===chain && x.addr===name);
+      if(dup){ dup.lat=lat; dup.lng=lng; continue; }
+      stores.push({ id:"s"+(Date.now()+count), chain, addr:name, lat, lng, visits:[], notes:"" });
+      count++;
+    }
+  }
+  if(folders.length){
+    for(const f of folders){
+      const layer = f.getElementsByTagName("name")[0]?.textContent?.trim() || "Unknown";
+      if(/route|direction/i.test(layer)) continue;
+      addPM(f.getElementsByTagName("Placemark"), layer);
+    }
+  } else { addPM(doc.getElementsByTagName("Placemark"), "Imported"); }
+  return count;
+}
+function importCSV(text){
+  let count = 0;
+  for(const line of text.split(/\r?\n/)){
+    if(!line.trim()) continue;
+    const parts = line.split(",").map(x => x.trim().replace(/^"|"$/g,""));
+    if(parts.length < 4) continue;
+    const [chain, addr, latS, lngS, lastOrVisits] = parts;
+    const lat = parseFloat(latS), lng = parseFloat(lngS);
+    if(!isFinite(lat) || !isFinite(lng)) continue;
+    const vArr = lastOrVisits ? lastOrVisits.split(";").map(x => x.trim()).filter(Boolean) : [];
+    const dup = stores.find(x => x.chain===chain && x.addr===addr);
+    if(dup){ for(const v of vArr) addVisit(dup,v); continue; }
+    stores.push({ id:"s"+(Date.now()+count), chain, addr, lat, lng, visits: vArr.sort().reverse().slice(0,MAX_VISITS), notes:"" });
+    count++;
+  }
+  return count;
+}
+
+// LOGOS
+function openLogoModal(){
+  const chainList = Object.keys(chainBreakdown()).sort();
+  const rows = chainList.map(c => {
+    const cur = logos[c];
+    const preview = cur ? `<img src="${cur}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; background:${CHAIN_COLORS[c]||"#888"}"/>` : `<span style="display:inline-flex; width:36px; height:36px; border-radius:50%; background:${CHAIN_COLORS[c]||"#888"}; color:white; align-items:center; justify-content:center; font-weight:800;">${escapeHtml((CHAIN_ABBR[c]||{text:c[0]}).text)}</span>`;
+    return `<div style="display:flex; align-items:center; gap:10px; padding:6px 0;">${preview}<div style="flex:1; min-width:0;"><div style="font-weight:500;">${escapeHtml(c)}</div><div style="font-size:11.5px; color:var(--ink-3);">${cur?"Custom logo set":"Using letter badge"}</div></div><input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-chain="${escapeHtml(c)}" class="logo-file"/>${cur?`<button class="btn small del-logo" data-chain="${escapeHtml(c)}" style="color:var(--red)">Clear</button>`:""}</div>`;
+  }).join("<hr style='border:0; border-top:1px solid var(--line); margin:0;'/>");
+  showModal(`<div class="m-head"><h3>Chain logos</h3><button class="btn subtle close" id="lo-close">✕</button></div><div class="m-body"><div style="color:var(--ink-2); font-size:12.5px;">Upload a square image per chain (PNG, SVG, or JPG). They're masked to a circle on the map. Stored only in your browser.</div>${rows}</div>`);
+  document.getElementById("lo-close").onclick = closeModal;
+  for(const inp of document.querySelectorAll(".logo-file")){
+    inp.onchange = e => { const file = e.target.files[0]; if(!file) return; const chain = e.target.getAttribute("data-chain"); const reader = new FileReader(); reader.onload = () => { logos[chain] = reader.result; saveLogos(); refreshAllMarkers(); openLogoModal(); }; reader.readAsDataURL(file); };
+  }
+  for(const b of document.querySelectorAll(".del-logo")){
+    b.onclick = () => { const c=b.getAttribute("data-chain"); delete logos[c]; saveLogos(); refreshAllMarkers(); openLogoModal(); };
+  }
+}
+
+// MODAL HELPERS
+function showModal(html){ document.getElementById("modal").innerHTML = html; document.getElementById("modal-bg").classList.add("show"); }
+function closeModal(){ document.getElementById("modal-bg").classList.remove("show"); document.getElementById("modal").innerHTML = ""; }
+document.getElementById("modal-bg").addEventListener("click", e => { if(e.target.id==="modal-bg") closeModal(); });
+
+// PLACE MODE
+function enterPlaceMode(){
+  placeMode = true; document.getElementById("map").classList.add("placing");
+  if(!document.getElementById("place-banner")){
+    const b = document.createElement("div");
+    b.id = "place-banner"; b.className = "place-banner";
+    b.innerHTML = `Click any spot on the map to drop a new store <button class="cancel" id="pb-cancel">Cancel</button>`;
+    document.querySelector(".map-wrap").appendChild(b);
+    document.getElementById("pb-cancel").onclick = exitPlaceMode;
+  }
+}
+function exitPlaceMode(){ placeMode = false; document.getElementById("map").classList.remove("placing"); const b = document.getElementById("place-banner"); if(b) b.remove(); }
+
+// MAIN
+function renderAll(){ renderStats(); renderChains(); renderList(); renderDetails(); renderTripPanel(); refreshAllMarkers(); }
+function wireUI(){
+  document.getElementById("search").addEventListener("input", e => { searchTerm = e.target.value; renderList(); renderStats(); refreshAllMarkers(); });
+  for(const p of document.querySelectorAll("#recency-filters .pill")){
+    p.addEventListener("click", () => { for(const x of document.querySelectorAll("#recency-filters .pill")) x.classList.remove("active"); p.classList.add("active"); recencyFilter = p.getAttribute("data-rec"); renderAll(); });
+  }
+  document.getElementById("chains-all").addEventListener("click", e => { e.preventDefault(); const all = Object.keys(chainBreakdown()); if(chainsEnabled.size === all.length) chainsEnabled.clear(); else chainsEnabled = new Set(all); renderAll(); });
+  document.getElementById("btn-route").onclick = () => openRouteModal();
+  document.getElementById("btn-add").onclick = () => openAddModal();
+  document.getElementById("btn-place").onclick = enterPlaceMode;
+  const pinBtn = document.getElementById("btn-pinsize");
+  pinBtn.textContent = "Pin: " + pinSizePref;
+  pinBtn.onclick = () => {
+    const order = ["S","M","L"];
+    pinSizePref = order[(order.indexOf(pinSizePref) + 1) % 3];
+    localStorage.setItem(PINSIZE_KEY, pinSizePref);
+    pinBtn.textContent = "Pin: " + pinSizePref;
+    refreshAllMarkers();
+  };
+  document.getElementById("btn-logos").onclick = openLogoModal;
+  document.getElementById("btn-io").onclick = openIOModal;
+  document.getElementById("btn-key").onclick = () => { if(confirm("Change Google Maps API key?")){ localStorage.removeItem(APIKEY_KEY); location.reload(); } };
+  document.getElementById("mob-list").onclick = () => { const s=document.getElementById("side"); s.classList.toggle("open"); document.getElementById("details").classList.remove("open"); };
+}
+init();
+</script>
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
