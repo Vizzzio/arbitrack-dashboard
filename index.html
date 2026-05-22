@@ -292,6 +292,14 @@ aside.details { grid-row:2; grid-column:3; background:var(--panel); border-left:
         </div>
       </div>
       <div>
+        <div style="font-size:11.5px; color:var(--ink-2); margin-bottom:5px;">Filter by</div>
+        <div class="filters-row" id="notes-filters">
+          <button class="pill active" data-notes="all">All stores</button>
+          <button class="pill" data-notes="has-notes">📝 Has notes</button>
+          <button class="pill" data-notes="no-notes">No notes</button>
+        </div>
+      </div>
+      <div>
         <div style="font-size:11.5px; color:var(--ink-2); margin-bottom:5px;">Chains <a href="#" id="chains-all" style="float:right; color:var(--accent); text-decoration:none; font-size:11px;">all</a></div>
         <div class="chains" id="chains"></div>
       </div>
@@ -398,7 +406,7 @@ let logos = loadLogos();
 let activeRoute = loadActiveRoute();
 let routeHistory = loadRouteHistory();
 let selectedId=null, chainsEnabled=new Set(Object.keys(chainBreakdown()));
-let recencyFilter="all", searchTerm="";
+let recencyFilter="all", notesFilter="all", searchTerm="";
 let placeMode=false, tapToAddMode=false;
 let draftRoute = [];
 let map=null;
@@ -425,6 +433,9 @@ function passesFilters(s){
   if(recencyFilter==="red"&&st!=="red") return false;
   if(recencyFilter==="green"&&st!=="green") return false;
   if(recencyFilter==="stale"&&st==="green") return false;
+  const hasNotes = s.notes && s.notes.trim().length > 0;
+  if(notesFilter==="has-notes"&&!hasNotes) return false;
+  if(notesFilter==="no-notes"&&hasNotes) return false;
   if(searchTerm){ const q=searchTerm.toLowerCase(); if(!s.addr.toLowerCase().includes(q)&&!s.chain.toLowerCase().includes(q)) return false; }
   return true;
 }
@@ -1283,6 +1294,9 @@ function wireUI(){
   document.getElementById("search").addEventListener("input", e => { searchTerm = e.target.value; renderList(); renderStats(); refreshAllMarkers(); });
   for(const p of document.querySelectorAll("#recency-filters .pill")){
     p.addEventListener("click", () => { for(const x of document.querySelectorAll("#recency-filters .pill")) x.classList.remove("active"); p.classList.add("active"); recencyFilter = p.getAttribute("data-rec"); renderAll(); });
+  for(const p of document.querySelectorAll("#notes-filters .pill")){
+    p.addEventListener("click", () => { for(const x of document.querySelectorAll("#notes-filters .pill")) x.classList.remove("active"); p.classList.add("active"); notesFilter = p.getAttribute("data-notes"); renderAll(); });
+  }
   }
   document.getElementById("chains-all").addEventListener("click", e => { e.preventDefault(); const all = Object.keys(chainBreakdown()); if(chainsEnabled.size === all.length) chainsEnabled.clear(); else chainsEnabled = new Set(all); renderAll(); });
   document.getElementById("btn-route").onclick = () => openRouteModal();
