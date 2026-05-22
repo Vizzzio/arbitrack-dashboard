@@ -1049,22 +1049,55 @@ function setStopStatus(i, act){
   if(act==="skip")  activeRoute.stops[i].status = cur==="skipped" ? "planned" : "skipped";
   saveActiveRoute(); renderTripPanel();
 }
-function finishTrip(){
+async function finishTrip(){
   if(!activeRoute) return;
   const today = todayStr();
   let committed = 0;
+
+  // 1. Mark visited stores locally + sync to Supabase (turns pins green on reload)
   for(const st of activeRoute.stops){
     if(st.status === "visited"){
       const s = stores.find(x => x.id===st.storeId);
-      if(s){ addVisit(s, today); committed++; }
+      if(s){
+        addVisit(s, today);
+        committed++;
+        // Sync visit date to sourcing_stores in Supabase
+        try {
+          const visits = s.visits || [];
+          if(!visits.includes(today)){
+            const updated = [today, ...visits].slice(0, 5);
+            await _sb.from('sourcing_stores').update({
+              visits: updated,
+              updated_at: new Date().toISOString()
+            }).eq('id', s.id);
+          }
+        } catch(e) { console.warn('Visit sync failed for', s.id, e.message); }
+      }
     }
   }
-  routeHistory.unshift({ date: today, startedAt: activeRoute.startedAt, finishedAt: new Date().toISOString(), total: activeRoute.stops.length, visited: committed, skipped: activeRoute.stops.filter(x => x.status==="skipped").length, stops: activeRoute.stops.map(x => ({ storeId: x.storeId, status: x.status })) });
+
+  // 2. Save trip history
+  routeHistory.unshift({
+    date: today,
+    startedAt: activeRoute.startedAt,
+    finishedAt: new Date().toISOString(),
+    total: activeRoute.stops.length,
+    visited: committed,
+    skipped: activeRoute.stops.filter(x => x.status==="skipped").length,
+    stops: activeRoute.stops.map(x => ({ storeId: x.storeId, status: x.status }))
+  });
   routeHistory = routeHistory.slice(0, 50);
   saveRouteHistory();
+
+  // 3. Clear route from Supabase — phone will detect this and clear its route tab too
+  try {
+    await _sb.from('routes').delete().eq('id', 'dashboard-active');
+  } catch(e) { console.warn('Could not clear Supabase route:', e.message); }
+
+  // 4. Clear local route + re-render
   activeRoute = null; saveActiveRoute();
   saveStores(); clearRoutePreview(); renderTripPanel(); renderAll();
-  alert(`Trip finished — ${committed} visits logged.`);
+  alert(`Trip finished — ${committed} store${committed!==1?'s':''} visited and synced.`);
 }
 
 // ADD STORE
