@@ -8,7 +8,7 @@
 <script>
 // ── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://dqocqznuuamikxfczntw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxb2Nxem51dWFtaWt4ZmN6bnR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjY0NDUsImV4cCI6MjA5NDkwMjQ0NX0.mlBqiwf3lZo5czhEgYJVXYBFyWGuGWCfioSH_COrfkA';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function sbLoadStores() {
@@ -969,7 +969,7 @@ function renderTripPanel(){
 }
 
 // Send today's route to the ArbiTrack mobile app
-function openArbitrackModal(){
+async function openArbitrackModal(){
   if(!activeRoute || !activeRoute.stops.length){ alert("No active route to send."); return; }
   const payload = {
     type: "arbitrack.route.v1",
@@ -980,33 +980,52 @@ function openArbitrackModal(){
       return s ? { id: s.id, chain: s.chain, addr: s.addr, lat: s.lat, lng: s.lng } : null;
     }).filter(Boolean)
   };
+
+  // Push to Supabase realtime — phone will get it instantly
+  let supabaseSent = false;
+  try {
+    await _sb.from('routes').upsert({
+      id: 'dashboard-active',
+      user_id: 'shared',
+      data: payload,
+      created_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    supabaseSent = true;
+    console.log('Route pushed to Supabase — phone will receive it instantly.');
+  } catch(e) {
+    console.warn('Supabase route push failed:', e.message);
+  }
+
   const json = JSON.stringify(payload, null, 2);
   const jsonMin = JSON.stringify(payload);
-  // base64 url-safe encode for deep link
   const b64 = btoa(unescape(encodeURIComponent(jsonMin)));
   const deepLink = `arbitrack://import?data=${encodeURIComponent(b64)}`;
+
   showModal(`
     <div class="m-head"><h3>Send to ArbiTrack</h3><button class="btn subtle close" id="ar-close">✕</button></div>
     <div class="m-body">
-      <div style="color:var(--ink-2); font-size:13px;">Two ways to get this route onto your phone:</div>
+      ${supabaseSent ? `
+      <div style="background:#dcfce7; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; color:#166534; font-size:13px; margin-bottom:4px;">
+        ✓ Route sent! Your phone will update automatically within seconds.
+      </div>` : `
+      <div style="color:var(--ink-2); font-size:13px;">Use one of these methods to get the route to your phone:</div>`}
 
       <div>
-        <label><b>Option A — Tap a link on your phone (easiest)</b></label>
+        <label><b>Option A — Tap a link on your phone</b></label>
         <div style="display:flex; gap:6px;">
           <input type="text" readonly id="ar-link" value="${deepLink}" style="font-family:monospace; font-size:11px;"/>
           <button class="btn" id="ar-copy-link">Copy</button>
         </div>
-        <div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">Text or email this link to yourself, tap it on your phone — ArbiTrack opens with the route loaded.</div>
+        <div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">Text or email this link to yourself, tap it on your phone.</div>
       </div>
 
       <div>
         <label><b>Option B — Paste JSON in ArbiTrack</b></label>
-        <textarea id="ar-json" readonly style="height:140px;">${escapeHtml(json)}</textarea>
+        <textarea id="ar-json" readonly style="height:100px;">${escapeHtml(json)}</textarea>
         <div style="display:flex; gap:6px; margin-top:6px;">
           <button class="btn primary" id="ar-copy-json">Copy JSON</button>
           <a class="btn" id="ar-mail" href="#">Email to myself</a>
         </div>
-        <div style="color:var(--ink-3); font-size:11.5px; margin-top:4px;">In ArbiTrack: open the <b>Route</b> tab → tap <b>Import route</b> → paste.</div>
       </div>
     </div>
   `);
