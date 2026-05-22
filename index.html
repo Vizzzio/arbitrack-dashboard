@@ -984,16 +984,20 @@ async function openArbitrackModal(){
   // Push to Supabase realtime — phone will get it instantly
   let supabaseSent = false;
   try {
-    await _sb.from('routes').upsert({
+    const { data: routeData, error: routeError } = await _sb.from('routes').upsert({
       id: 'dashboard-active',
       user_id: 'shared',
       data: payload,
       created_at: new Date().toISOString()
     }, { onConflict: 'id' });
-    supabaseSent = true;
-    console.log('Route pushed to Supabase — phone will receive it instantly.');
+    if (routeError) {
+      console.error('Supabase route error:', routeError.message, routeError.code, routeError.details);
+    } else {
+      supabaseSent = true;
+      console.log('Route pushed to Supabase successfully.');
+    }
   } catch(e) {
-    console.warn('Supabase route push failed:', e.message);
+    console.error('Supabase route push exception:', e.message);
   }
 
   const json = JSON.stringify(payload, null, 2);
